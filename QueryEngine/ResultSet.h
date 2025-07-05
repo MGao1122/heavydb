@@ -393,6 +393,9 @@ class ResultSet {
   void addCompilationQueueTime(const int64_t compilation_queue_time);
 
   int64_t getQueueTime() const;
+  int64_t getExecutorQueueTime() const { return timings_.executor_queue_time; }
+  int64_t getKernelQueueTime() const { return timings_.kernel_queue_time; }
+  int64_t getCompilationQueueTime() const { return timings_.compilation_queue_time; }
   int64_t getRenderTime() const;
 
   void moveToBegin() const;

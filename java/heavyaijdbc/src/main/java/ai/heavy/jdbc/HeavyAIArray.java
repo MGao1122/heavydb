@@ -200,7 +200,15 @@ public class HeavyAIArray implements java.sql.Array {
     columns.add(new TColumn(idxData, idxNulls));
     columns.add(new TColumn(valuesData, valueNulls));
     TRowSet rowSet = new TRowSet(columnTypes, null, columns, true);
-    TQueryResult result = new TQueryResult(rowSet, 0, 0, "", "", true, TQueryType.READ);
+    TQueryResult result = new TQueryResult(
+            rowSet,
+            0,
+            0,
+            "",
+            "",
+            true,
+            TQueryType.READ,
+            new ai.heavy.thrift.server.TTimingInfo());
     return new HeavyAIResultSet(result, "");
   }
 
