@@ -207,6 +207,7 @@ struct TDataFrame {
   5: i64 execution_time_ms;
   6: i64 arrow_conversion_time_ms;
   7: binary df_buffer;
+  8: TTimingInfo timings;
 }
 
 struct TDBInfo {
