@@ -334,6 +334,7 @@ void eliminate_dead_self_recursive_funcs(
 // libdevice functions have a __nv_* prefix
 bool check_module_requires_libdevice(llvm::Module* llvm_module) {
   auto timer = DEBUG_TIMER(__func__);
+  auto compile_begin = timer_start();
   for (llvm::Function& F : *llvm_module) {
     if (F.hasName() && F.getName().startswith("__nv_")) {
       LOG(INFO) << "Module requires linking with libdevice: " << std::string(F.getName());
@@ -3329,7 +3330,7 @@ Executor::compileWorkUnit(const std::vector<InputTableInfo>& query_infos,
   }
 
   // Generate final native code from the LLVM IR.
-  return std::make_tuple(
+  auto result = std::make_tuple(
       CompilationResult{
           co.device_type == ExecutorDeviceType::CPU
               ? optimizeAndCodegenCPU(query_func, multifrag_query_func, live_funcs, co)
@@ -3345,6 +3346,8 @@ Executor::compileWorkUnit(const std::vector<InputTableInfo>& query_infos,
           llvm_ir,
           std::move(gpu_smem_context)},
       std::move(query_mem_desc));
+  compilation_time_ms_ += timer_stop(compile_begin);
+  return result;
 }
 
 void Executor::insertErrorCodeChecker(llvm::Function* query_func,

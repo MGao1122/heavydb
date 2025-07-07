@@ -1259,6 +1259,8 @@ void DBHandler::convertData(TQueryResult& _return,
     _return.timings.executor_queue_time_ms += rs->getExecutorQueueTime();
     _return.timings.kernel_queue_time_ms += rs->getKernelQueueTime();
     _return.timings.compilation_queue_time_ms += rs->getCompilationQueueTime();
+    _return.timings.kernel_execution_time_ms += rs->getKernelExecutionTime();
+    _return.timings.compilation_time_ms += rs->getCompilationTime();
   }
   if (result.empty()) {
     return;
@@ -1527,6 +1529,8 @@ void DBHandler::sql_execute_df(TDataFrame& _return,
   _return.timings.executor_queue_time_ms += result_set->getExecutorQueueTime();
   _return.timings.kernel_queue_time_ms += result_set->getKernelQueueTime();
   _return.timings.compilation_queue_time_ms += result_set->getCompilationQueueTime();
+  _return.timings.kernel_execution_time_ms += result_set->getKernelExecutionTime();
+  _return.timings.compilation_time_ms += result_set->getCompilationTime();
   const auto converter = std::make_unique<ArrowResultSetConverter>(
       result_set,
       data_mgr_,
@@ -8349,6 +8353,8 @@ void DBHandler::executeDdl(
       _return.timings.executor_queue_time_ms += rs_ptr->getExecutorQueueTime();
       _return.timings.kernel_queue_time_ms += rs_ptr->getKernelQueueTime();
       _return.timings.compilation_queue_time_ms += rs_ptr->getCompilationQueueTime();
+      _return.timings.kernel_execution_time_ms += rs_ptr->getKernelExecutionTime();
+      _return.timings.compilation_time_ms += rs_ptr->getCompilationTime();
       convertResultSet(result, *session_ptr, commandStr, _return);
     }
   }
