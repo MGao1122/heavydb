@@ -386,13 +386,22 @@ class ResultSet {
     int64_t render_time{0};
     int64_t compilation_queue_time{0};
     int64_t kernel_queue_time{0};
+    int64_t kernel_execution_time{0};
+    int64_t compilation_time{0};
   };
 
   void setQueueTime(const int64_t queue_time);
   void setKernelQueueTime(const int64_t kernel_queue_time);
   void addCompilationQueueTime(const int64_t compilation_queue_time);
+  void setKernelExecutionTime(const int64_t kernel_execution_time);
+  void addCompilationTime(const int64_t compilation_time);
 
   int64_t getQueueTime() const;
+  int64_t getExecutorQueueTime() const { return timings_.executor_queue_time; }
+  int64_t getKernelQueueTime() const { return timings_.kernel_queue_time; }
+  int64_t getCompilationQueueTime() const { return timings_.compilation_queue_time; }
+  int64_t getKernelExecutionTime() const { return timings_.kernel_execution_time; }
+  int64_t getCompilationTime() const { return timings_.compilation_time; }
   int64_t getRenderTime() const;
 
   void moveToBegin() const;

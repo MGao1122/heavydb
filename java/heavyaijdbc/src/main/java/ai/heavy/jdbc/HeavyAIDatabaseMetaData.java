@@ -943,7 +943,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
 
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
 
     HeavyAIResultSet tab = new HeavyAIResultSet(result, "GetTables");
     return tab;
@@ -1007,7 +1014,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
 
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
 
     HeavyAIResultSet schemas = new HeavyAIResultSet(result, "getSchemas");
     return schemas;
@@ -1052,7 +1066,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
 
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
 
     HeavyAIResultSet tab = new HeavyAIResultSet(result, "getTableTypes");
 
@@ -1287,7 +1308,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
 
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
 
     HeavyAIResultSet cols = new HeavyAIResultSet(result, "getColumns");
     return cols;
@@ -1325,7 +1353,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     }
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
     HeavyAIResultSet cols = new HeavyAIResultSet(result, "getColumns");
     return cols;
   }
@@ -1438,7 +1473,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
 
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
 
     HeavyAIResultSet cols = new HeavyAIResultSet(result, "getPrivileges");
     return cols;
@@ -1709,7 +1751,14 @@ class HeavyAIDatabaseMetaData implements DatabaseMetaData {
     TRowSet rowSet = new TRowSet(rowDesc, null, columnsList, true);
 
     TQueryResult result = new TQueryResult(
-            rowSet, 0, 0, null, null, true, ai.heavy.thrift.server.TQueryType.UNKNOWN);
+            rowSet,
+            0,
+            0,
+            null,
+            null,
+            true,
+            ai.heavy.thrift.server.TQueryType.UNKNOWN,
+            new ai.heavy.thrift.server.TTimingInfo());
 
     HeavyAIResultSet cols = new HeavyAIResultSet(result, "getTypeInfo");
     return cols;
