@@ -1271,7 +1271,6 @@ class Executor {
                     const PlanState::DeletedColumnsMap& deleted_cols_map,
                     const RelAlgExecutionUnit* ra_exe_unit);
 
-  void addCompilationTime(int64_t t) { compilation_time_ms_ += t; }
 
   std::shared_ptr<CompilationContext> optimizeAndCodegenCPU(
       llvm::Function*,
@@ -1353,6 +1352,7 @@ class Executor {
   ExecutorId getExecutorId() const {
     return executor_id_;
   };
+  void addCompilationTime(int64_t t) { compilation_time_ms_ += t; }
   QuerySessionId& getCurrentQuerySession(
       heavyai::shared_lock<heavyai::shared_mutex>& read_lock);
   QuerySessionStatus::QueryStatus getQuerySessionStatus(

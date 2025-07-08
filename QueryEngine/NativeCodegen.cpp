@@ -334,7 +334,6 @@ void eliminate_dead_self_recursive_funcs(
 // libdevice functions have a __nv_* prefix
 bool check_module_requires_libdevice(llvm::Module* llvm_module) {
   auto timer = DEBUG_TIMER(__func__);
-  auto compile_begin = timer_start();
   for (llvm::Function& F : *llvm_module) {
     if (F.hasName() && F.getName().startswith("__nv_")) {
       LOG(INFO) << "Module requires linking with libdevice: " << std::string(F.getName());
@@ -2932,6 +2931,7 @@ Executor::compileWorkUnit(const std::vector<InputTableInfo>& query_infos,
                           RenderInfo* render_info) {
   auto timer = DEBUG_TIMER(__func__);
 
+  auto compile_begin = timer_start();
   if (co.device_type == ExecutorDeviceType::GPU) {
     if (!cuda_mgr) {
       throw QueryMustRunOnCpu();
