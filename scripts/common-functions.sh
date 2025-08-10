@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HTTP_DEPS="https://dependencies.mapd.com/thirdparty"
+HTTP_DEPS="https://dependencies.heavy.ai/thirdparty"
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function generate_deps_version_file() {
