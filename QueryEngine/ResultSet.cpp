@@ -190,7 +190,7 @@ ResultSet::ResultSet(int64_t queue_time_ms,
     , thread_idx_(-1)
     , fetched_so_far_(0)
     , row_set_mem_owner_(row_set_mem_owner)
-    , timings_(QueryExecutionTimings{queue_time_ms, render_time_ms, 0, 0})
+    , timings_(QueryExecutionTimings{queue_time_ms, render_time_ms, 0, 0, 0, 0})
     , separate_varlen_storage_valid_(false)
     , just_explain_(true)
     , for_validation_only_(false)
@@ -726,6 +726,14 @@ void ResultSet::setKernelQueueTime(const int64_t kernel_queue_time) {
 
 void ResultSet::addCompilationQueueTime(const int64_t compilation_queue_time) {
   timings_.compilation_queue_time += compilation_queue_time;
+}
+
+void ResultSet::setKernelExecutionTime(const int64_t kernel_execution_time) {
+  timings_.kernel_execution_time = kernel_execution_time;
+}
+
+void ResultSet::addCompilationTime(const int64_t compilation_time) {
+  timings_.compilation_time += compilation_time;
 }
 
 int64_t ResultSet::getQueueTime() const {

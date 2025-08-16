@@ -88,6 +88,14 @@ class HeavyAIResultSet implements java.sql.ResultSet {
     numOfRecords = 0;
   }
 
+  public TTimingInfo getTimings() throws SQLException {
+    checkClosed();
+    if (sqlResult == null || sqlResult.timings == null) {
+      return new TTimingInfo();
+    }
+    return sqlResult.timings;
+  }
+
   @Override
   public boolean next() throws SQLException { // logger.debug("Entered "+ sql );
     checkClosed();
@@ -1331,8 +1339,8 @@ class HeavyAIResultSet implements java.sql.ResultSet {
           elements = new BigDecimal[size];
           for (int i = 0; i < size; ++i) {
             elements[i] = BigDecimal.valueOf(rowSet.columns.get(columnIndex - 1)
-                                                     .data.arr_col.get(offset)
-                                                     .data.real_col.get(i));
+                            .data.arr_col.get(offset)
+                            .data.real_col.get(i));
           }
           break;
         case DOUBLE:
