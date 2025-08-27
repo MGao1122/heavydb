@@ -1271,6 +1271,7 @@ class Executor {
                     const PlanState::DeletedColumnsMap& deleted_cols_map,
                     const RelAlgExecutionUnit* ra_exe_unit);
 
+
   std::shared_ptr<CompilationContext> optimizeAndCodegenCPU(
       llvm::Function*,
       llvm::Function*,
@@ -1351,6 +1352,7 @@ class Executor {
   ExecutorId getExecutorId() const {
     return executor_id_;
   };
+  void addCompilationTime(int64_t t) { compilation_time_ms_ += t; }
   QuerySessionId& getCurrentQuerySession(
       heavyai::shared_lock<heavyai::shared_mutex>& read_lock);
   QuerySessionStatus::QueryStatus getQuerySessionStatus(
@@ -1594,6 +1596,8 @@ class Executor {
 
   int64_t kernel_queue_time_ms_ = 0;
   int64_t compilation_queue_time_ms_ = 0;
+  int64_t kernel_execution_time_ms_ = 0;
+  int64_t compilation_time_ms_ = 0;
 
   // Singleton instance used for an execution unit which is a project with window
   // functions.

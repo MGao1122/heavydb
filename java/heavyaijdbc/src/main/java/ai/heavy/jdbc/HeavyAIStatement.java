@@ -199,6 +199,14 @@ public class HeavyAIStatement implements java.sql.Statement {
     return (int) sqlResult.execution_time_ms;
   }
 
+  // expose detailed timing breakdowns
+  public TTimingInfo getQueryTimings() throws SQLException {
+    if (sqlResult == null || sqlResult.timings == null) {
+      return new TTimingInfo();
+    }
+    return sqlResult.timings;
+  }
+
   @Override
   public void setQueryTimeout(int seconds)
           throws SQLException { // logger.debug("Entered");
