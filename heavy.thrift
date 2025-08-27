@@ -180,6 +180,18 @@ enum TArrowTransport {
   WIRE
 }
 
+struct TTimingInfo {
+  1: i64 executor_queue_time_ms;
+  2: i64 kernel_queue_time_ms;
+  3: i64 compilation_queue_time_ms;
+  4: i64 gpu_execution_time_ms;
+  5: i64 cpu_execution_time_ms;
+  6: i64 kernel_execution_time_ms;
+  7: i64 compilation_time_ms;
+  8: i64 parsing_time_ms;
+  9: i64 data_transfer_time_ms;
+}
+
 struct TQueryResult {
   1: TRowSet row_set;
   2: i64 execution_time_ms;
@@ -188,6 +200,7 @@ struct TQueryResult {
   5: string debug;
   6: bool success=true;
   7: TQueryType query_type=TQueryType.UNKNOWN;
+  8: TTimingInfo timings;
 }
 
 struct TDataFrame {
@@ -198,6 +211,7 @@ struct TDataFrame {
   5: i64 execution_time_ms;
   6: i64 arrow_conversion_time_ms;
   7: binary df_buffer;
+  8: TTimingInfo timings;
 }
 
 struct TDBInfo {

@@ -1250,10 +1250,24 @@ void DBHandler::convertData(TQueryResult& _return,
                             const int32_t first_n,
                             const int32_t at_most_n) {
   _return.execution_time_ms += result.getExecutionTime();
+  if (auto rs = result.getRows()) {
+    if (rs->getDeviceType() == ExecutorDeviceType::GPU) {
+      _return.timings.gpu_execution_time_ms += result.getExecutionTime();
+    } else {
+      _return.timings.cpu_execution_time_ms += result.getExecutionTime();
+    }
+    _return.timings.executor_queue_time_ms += rs->getExecutorQueueTime();
+    _return.timings.kernel_queue_time_ms += rs->getKernelQueueTime();
+    _return.timings.compilation_queue_time_ms += rs->getCompilationQueueTime();
+    _return.timings.kernel_execution_time_ms += rs->getKernelExecutionTime();
+    _return.timings.compilation_time_ms += rs->getCompilationTime();
+    _return.timings.parsing_time_ms += result.getParsingTime();
+  }
   if (result.empty()) {
     return;
   }
 
+  auto transfer_clock = timer_start();
   switch (result.getResultType()) {
     case ExecutionResult::QueryResult:
       convertRows(_return,
@@ -1280,6 +1294,7 @@ void DBHandler::convertData(TQueryResult& _return,
                   -1);
       break;
   }
+  _return.timings.data_transfer_time_ms += timer_stop(transfer_clock);
 }
 
 void DBHandler::sql_execute(TQueryResult& _return,
@@ -1509,6 +1524,17 @@ void DBHandler::sql_execute_df(TDataFrame& _return,
                                                 : ExecutorDeviceType::GPU;
   _return.execution_time_ms =
       execution_result.getExecutionTime() - result_set->getQueueTime();
+  if (result_set->getDeviceType() == ExecutorDeviceType::GPU) {
+    _return.timings.gpu_execution_time_ms += execution_result.getExecutionTime();
+  } else {
+    _return.timings.cpu_execution_time_ms += execution_result.getExecutionTime();
+  }
+  _return.timings.executor_queue_time_ms += result_set->getExecutorQueueTime();
+  _return.timings.kernel_queue_time_ms += result_set->getKernelQueueTime();
+  _return.timings.compilation_queue_time_ms += result_set->getCompilationQueueTime();
+  _return.timings.kernel_execution_time_ms += result_set->getKernelExecutionTime();
+  _return.timings.compilation_time_ms += result_set->getCompilationTime();
+  _return.timings.parsing_time_ms += execution_result.getParsingTime();
   const auto converter = std::make_unique<ArrowResultSetConverter>(
       result_set,
       data_mgr_,
@@ -1518,8 +1544,10 @@ void DBHandler::sql_execute_df(TDataFrame& _return,
       first_n,
       ArrowTransport(transport_method));
   ArrowResult arrow_result;
-  _return.arrow_conversion_time_ms +=
+  const auto arrow_time =
       measure<>::execution([&] { arrow_result = converter->getArrowResult(); });
+  _return.arrow_conversion_time_ms += arrow_time;
+  _return.timings.data_transfer_time_ms += arrow_time;
   _return.sm_handle =
       std::string(arrow_result.sm_handle.begin(), arrow_result.sm_handle.end());
   _return.sm_size = arrow_result.sm_size;
@@ -6682,12 +6710,14 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
     check_read_only("insert_into_table");
 
     std::string query_ra;
-    _return.addExecutionTime(measure<>::execution([&]() {
+    auto parsing_time = measure<>::execution([&]() {
       TPlanResult result;
       std::tie(result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
       query_ra = result.plan_result;
-    }));
+    });
+    _return.addExecutionTime(parsing_time);
+    _return.addParsingTime(parsing_time);
     rapidjson::Document ddl_query;
     ddl_query.Parse(query_ra);
     CHECK(ddl_query.HasMember("payload"));
@@ -6703,12 +6733,14 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
     check_read_only("create_table_as");
 
     std::string query_ra;
-    _return.addExecutionTime(measure<>::execution([&]() {
+    auto parsing_time = measure<>::execution([&]() {
       TPlanResult result;
       std::tie(result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
       query_ra = result.plan_result;
-    }));
+    });
+    _return.addExecutionTime(parsing_time);
+    _return.addParsingTime(parsing_time);
     if (query_ra.size()) {
       rapidjson::Document ddl_query;
       ddl_query.Parse(query_ra);
@@ -6724,12 +6756,14 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
   } else if (pw.getDMLType() == ParserWrapper::DMLType::Insert) {
     check_read_only("insert_into_table");
     std::string query_ra;
-    _return.addExecutionTime(measure<>::execution([&]() {
+    auto parsing_time = measure<>::execution([&]() {
       TPlanResult result;
       std::tie(result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
       query_ra = result.plan_result;
-    }));
+    });
+    _return.addExecutionTime(parsing_time);
+    _return.addParsingTime(parsing_time);
     rapidjson::Document ddl_query;
     ddl_query.Parse(query_ra);
     CHECK(ddl_query.HasMember("payload"));
@@ -6749,12 +6783,14 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
     }
 
     std::string query_ra;
-    _return.addExecutionTime(measure<>::execution([&]() {
+    auto parsing_time = measure<>::execution([&]() {
       TPlanResult result;
       std::tie(result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
       query_ra = result.plan_result;
-    }));
+    });
+    _return.addExecutionTime(parsing_time);
+    _return.addParsingTime(parsing_time);
     rapidjson::Document ddl_query;
     ddl_query.Parse(query_ra);
     CHECK(ddl_query.HasMember("payload"));
@@ -6822,12 +6858,14 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
 
   } else if (pw.is_ddl) {
     std::string query_ra;
-    _return.addExecutionTime(measure<>::execution([&]() {
+    auto parsing_time = measure<>::execution([&]() {
       TPlanResult result;
       std::tie(result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
       query_ra = result.plan_result;
-    }));
+    });
+    _return.addExecutionTime(parsing_time);
+    _return.addParsingTime(parsing_time);
     executeDdl(_return, query_ra, session_ptr);
     return;
 
@@ -6851,12 +6889,14 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
 
     std::string query_ra = query_str;
     if (use_calcite) {
-      _return.addExecutionTime(measure<>::execution([&]() {
+      auto parsing_time = measure<>::execution([&]() {
         TPlanResult result;
         std::tie(result, locks) =
             parse_to_ra(query_state_proxy, query_str, {}, true, system_parameters_);
         query_ra = result.plan_result;
-      }));
+      });
+      _return.addExecutionTime(parsing_time);
+      _return.addParsingTime(parsing_time);
     }
     std::string query_ra_calcite_explain;
     ExplainInfo explain(query_str);
@@ -6928,12 +6968,16 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
                     filter_push_down_info_for_request.input_next = req.input_next;
                     filter_push_down_info.push_back(filter_push_down_info_for_request);
                   }
-                  query_ra = parse_to_ra(query_state_proxy,
-                                         query_str,
-                                         filter_push_down_info,
-                                         false,
-                                         system_parameters_)
-                                 .first.plan_result;
+                  auto parsing_time = measure<>::execution([&]() {
+                    query_ra = parse_to_ra(query_state_proxy,
+                                           query_str,
+                                           filter_push_down_info,
+                                           false,
+                                           system_parameters_)
+                                   .first.plan_result;
+                  });
+                  _return.addExecutionTime(parsing_time);
+                  _return.addParsingTime(parsing_time);
                   _return.updateResultSet(query_ra, ExecutionResult::Explanation);
                 }
               } else {
@@ -6999,14 +7043,16 @@ void DBHandler::execute_rel_alg_with_filter_push_down(
     filter_push_down_info.push_back(filter_push_down_info_for_request);
   }
   // deriving the new relational algebra plan with respect to the pushed down filters
-  _return.addExecutionTime(measure<>::execution([&]() {
+  auto parsing_time = measure<>::execution([&]() {
     query_ra = parse_to_ra(query_state_proxy,
                            query_state_proxy->getQueryStr(),
                            filter_push_down_info,
                            false,
                            system_parameters_)
                    .first.plan_result;
-  }));
+  });
+  _return.addExecutionTime(parsing_time);
+  _return.addParsingTime(parsing_time);
 
   // execute the new relational algebra plan:
   auto explain_info = ExplainInfo(ExplainInfo::ExplainType::None);
@@ -8321,7 +8367,18 @@ void DBHandler::executeDdl(
 
     if (!result.empty()) {
       // reduce execution time by the time spent during queue waiting
-      _return.execution_time_ms -= result.getRows()->getQueueTime();
+      const auto rs_ptr = result.getRows();
+      _return.execution_time_ms -= rs_ptr->getQueueTime();
+      if (rs_ptr->getDeviceType() == ExecutorDeviceType::GPU) {
+        _return.timings.gpu_execution_time_ms += result.getExecutionTime();
+      } else {
+        _return.timings.cpu_execution_time_ms += result.getExecutionTime();
+      }
+      _return.timings.executor_queue_time_ms += rs_ptr->getExecutorQueueTime();
+      _return.timings.kernel_queue_time_ms += rs_ptr->getKernelQueueTime();
+      _return.timings.compilation_queue_time_ms += rs_ptr->getCompilationQueueTime();
+      _return.timings.kernel_execution_time_ms += rs_ptr->getKernelExecutionTime();
+      _return.timings.compilation_time_ms += rs_ptr->getCompilationTime();
       convertResultSet(result, *session_ptr, commandStr, _return);
     }
   }

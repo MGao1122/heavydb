@@ -79,6 +79,10 @@ class ExecutionResult {
   void addExecutionTime(int64_t execution_time_ms) {
     execution_time_ms_ += execution_time_ms;
   }
+  int64_t getParsingTime() const { return parsing_time_ms_; }
+  void addParsingTime(int64_t parsing_time_ms) {
+    parsing_time_ms_ += parsing_time_ms;
+  }
 
  private:
   ResultSetPtr result_;
@@ -90,6 +94,7 @@ class ExecutionResult {
 
   bool success_;
   uint64_t execution_time_ms_;
+  uint64_t parsing_time_ms_;
   RType type_;
 };
 

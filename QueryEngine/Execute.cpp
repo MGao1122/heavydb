@@ -1752,7 +1752,7 @@ Executor::getUniqueThreadSharedResultSets(
 namespace {
 
 ReductionCode get_reduction_code(
-    const size_t executor_id,
+    Executor* executor,
     std::vector<std::pair<ResultSetPtr, std::vector<size_t>>>& results_per_device,
     int64_t* compilation_queue_time) {
   auto clock_begin = timer_start();
@@ -1761,9 +1761,11 @@ ReductionCode get_reduction_code(
   ResultSetReductionJIT reduction_jit(this_result_set->getQueryMemDesc(),
                                       this_result_set->getTargetInfos(),
                                       this_result_set->getTargetInitVals(),
-                                      executor_id);
+                                      executor->getExecutorId());
   ReductionCode result = reduction_jit.codegen();
-  *compilation_queue_time = timer_stop(clock_begin);
+  auto elapsed = timer_stop(clock_begin);
+  *compilation_queue_time = elapsed;
+  executor->addCompilationTime(elapsed);
   return result;
 };
 
@@ -1779,7 +1781,7 @@ ResultSetPtr Executor::reduceMultiDeviceResultSets(
   int64_t compilation_queue_time = 0;
   if (results_per_device.size() > size_t(1)) {
     const auto reduction_code =
-        get_reduction_code(executor_id_, results_per_device, &compilation_queue_time);
+        get_reduction_code(const_cast<Executor*>(this), results_per_device, &compilation_queue_time);
 
     for (size_t i = 1; i < results_per_device.size(); ++i) {
       reduced_results->getStorage()->reduce(
@@ -2181,6 +2183,8 @@ ResultSetPtr Executor::executeWorkUnit(size_t& max_groups_buffer_entry_guess,
     if (result) {
       result->setKernelQueueTime(kernel_queue_time_ms_);
       result->addCompilationQueueTime(compilation_queue_time_ms_);
+      result->setKernelExecutionTime(kernel_execution_time_ms_);
+      result->addCompilationTime(compilation_time_ms_);
       if (eo.just_validate) {
         result->setValidationOnlyRes();
       }
@@ -2202,6 +2206,8 @@ ResultSetPtr Executor::executeWorkUnit(size_t& max_groups_buffer_entry_guess,
     if (result) {
       result->setKernelQueueTime(kernel_queue_time_ms_);
       result->addCompilationQueueTime(compilation_queue_time_ms_);
+      result->setKernelExecutionTime(kernel_execution_time_ms_);
+      result->addCompilationTime(compilation_time_ms_);
       if (eo.just_validate) {
         result->setValidationOnlyRes();
       }
@@ -3159,6 +3165,7 @@ void Executor::launchKernelsImpl(SharedKernelContext& shared_context,
                                  std::vector<std::unique_ptr<ExecutionKernel>>&& kernels,
                                  const ExecutorDeviceType device_type,
                                  const size_t requested_num_threads) {
+  auto exec_begin = timer_start();
 #ifdef HAVE_TBB
   const size_t num_threads =
       requested_num_threads == Executor::auto_num_threads
@@ -3236,6 +3243,7 @@ void Executor::launchKernelsImpl(SharedKernelContext& shared_context,
       shared_context.addDeviceResults(std::move(results), {});
     }
   }
+  kernel_execution_time_ms_ += timer_stop(exec_begin);
 }
 
 void Executor::launchKernelsLocked(
@@ -4385,6 +4393,8 @@ void Executor::nukeOldState(const bool allow_lazy_fetch,
                             const RelAlgExecutionUnit* ra_exe_unit) {
   kernel_queue_time_ms_ = 0;
   compilation_queue_time_ms_ = 0;
+  kernel_execution_time_ms_ = 0;
+  compilation_time_ms_ = 0;
   const bool contains_left_deep_outer_join =
       ra_exe_unit && std::find_if(ra_exe_unit->join_quals.begin(),
                                   ra_exe_unit->join_quals.end(),
