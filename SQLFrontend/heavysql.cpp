@@ -1397,7 +1397,6 @@ int main(int argc, char** argv) {
               std::cout << "  Data transfer time: "
                         << t.data_transfer_time_ms
                         << " ms, Parsing time: " << t.parsing_time_ms << " ms"
-                        << std::endl;
             }
             continue;
           }
@@ -1449,6 +1448,8 @@ int main(int argc, char** argv) {
                       << t.data_transfer_time_ms
                       << " ms, Parsing time: " << t.parsing_time_ms << " ms"
                       << std::endl;
+            std::cout << "  Kernel time: " << t.kernel_execution_time_ms << " ms, Compilation time: "
+                      << t.compilation_time_ms << " ms" << std::endl;
           }
         } else {
           (void)backchannel(TURN_OFF, nullptr);

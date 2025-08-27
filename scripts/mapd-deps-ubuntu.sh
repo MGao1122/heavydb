@@ -83,7 +83,7 @@ if [[ ! -x  "$(command -v sudo)" ]] ; then
   fi
 fi
 
-HTTP_DEPS="https://dependencies.mapd.com/thirdparty"
+HTTP_DEPS="https://dependencies.heavy.ai/thirdparty"
 
 SUFFIX=${SUFFIX:=$(date +%Y%m%d)}
 PREFIX=/usr/local/mapd-deps
