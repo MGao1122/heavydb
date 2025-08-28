@@ -6460,6 +6460,7 @@ std::vector<PushedDownFilterInfo> DBHandler::execute_rel_alg(
       g_running_query_interrupt_freq,
       g_pending_query_interrupt_freq,
       g_optimize_cuda_block_and_grid_sizes};
+  const auto parsing_time_ms = _return.getParsingTime();
   auto execution_time_ms =
       _return.getExecutionTime() + measure<>::execution([&]() {
         _return = ra_executor.executeRelAlgQuery(
@@ -6471,6 +6472,7 @@ std::vector<PushedDownFilterInfo> DBHandler::execute_rel_alg(
     execution_time_ms -= rs->getQueueTime();
   }
   _return.setExecutionTime(execution_time_ms);
+  _return.addParsingTime(parsing_time_ms);
   const auto& filter_push_down_info = _return.getPushedDownFilterInfo();
   if (!filter_push_down_info.empty()) {
     return filter_push_down_info;
