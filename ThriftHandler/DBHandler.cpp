@@ -83,7 +83,6 @@
 #include "Shared/scope.h"
 #include "UdfCompiler/UdfCompiler.h"
 
-
 #ifdef HAVE_AWS_S3
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #endif
@@ -1262,6 +1261,7 @@ void DBHandler::convertData(TQueryResult& _return,
     _return.timings.kernel_execution_time_ms += rs->getKernelExecutionTime();
     _return.timings.compilation_time_ms += rs->getCompilationTime();
   }
+  _return.timings.parsing_time_ms += result.getParsingTime();
   if (result.empty()) {
     return;
   }
@@ -1531,6 +1531,7 @@ void DBHandler::sql_execute_df(TDataFrame& _return,
   _return.timings.compilation_queue_time_ms += result_set->getCompilationQueueTime();
   _return.timings.kernel_execution_time_ms += result_set->getKernelExecutionTime();
   _return.timings.compilation_time_ms += result_set->getCompilationTime();
+  _return.timings.parsing_time_ms += execution_result.getParsingTime();
   const auto converter = std::make_unique<ArrowResultSetConverter>(
       result_set,
       data_mgr_,
@@ -6704,12 +6705,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
     check_read_only("insert_into_table");
 
     std::string query_ra;
+    TPlanResult parse_result;
     _return.addExecutionTime(measure<>::execution([&]() {
-      TPlanResult result;
-      std::tie(result, locks) =
+      std::tie(parse_result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
-      query_ra = result.plan_result;
+      query_ra = parse_result.plan_result;
     }));
+    _return.addParsingTime(parse_result.execution_time_ms);
     rapidjson::Document ddl_query;
     ddl_query.Parse(query_ra);
     CHECK(ddl_query.HasMember("payload"));
@@ -6725,12 +6727,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
     check_read_only("create_table_as");
 
     std::string query_ra;
+    TPlanResult parse_result;
     _return.addExecutionTime(measure<>::execution([&]() {
-      TPlanResult result;
-      std::tie(result, locks) =
+      std::tie(parse_result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
-      query_ra = result.plan_result;
+      query_ra = parse_result.plan_result;
     }));
+    _return.addParsingTime(parse_result.execution_time_ms);
     if (query_ra.size()) {
       rapidjson::Document ddl_query;
       ddl_query.Parse(query_ra);
@@ -6746,12 +6749,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
   } else if (pw.getDMLType() == ParserWrapper::DMLType::Insert) {
     check_read_only("insert_into_table");
     std::string query_ra;
+    TPlanResult parse_result;
     _return.addExecutionTime(measure<>::execution([&]() {
-      TPlanResult result;
-      std::tie(result, locks) =
+      std::tie(parse_result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
-      query_ra = result.plan_result;
+      query_ra = parse_result.plan_result;
     }));
+    _return.addParsingTime(parse_result.execution_time_ms);
     rapidjson::Document ddl_query;
     ddl_query.Parse(query_ra);
     CHECK(ddl_query.HasMember("payload"));
@@ -6771,12 +6775,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
     }
 
     std::string query_ra;
+    TPlanResult parse_result;
     _return.addExecutionTime(measure<>::execution([&]() {
-      TPlanResult result;
-      std::tie(result, locks) =
+      std::tie(parse_result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
-      query_ra = result.plan_result;
+      query_ra = parse_result.plan_result;
     }));
+    _return.addParsingTime(parse_result.execution_time_ms);
     rapidjson::Document ddl_query;
     ddl_query.Parse(query_ra);
     CHECK(ddl_query.HasMember("payload"));
@@ -6844,12 +6849,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
 
   } else if (pw.is_ddl) {
     std::string query_ra;
+    TPlanResult parse_result;
     _return.addExecutionTime(measure<>::execution([&]() {
-      TPlanResult result;
-      std::tie(result, locks) =
+      std::tie(parse_result, locks) =
           parse_to_ra(query_state_proxy, query_str, {}, false, system_parameters_);
-      query_ra = result.plan_result;
+      query_ra = parse_result.plan_result;
     }));
+    _return.addParsingTime(parse_result.execution_time_ms);
     executeDdl(_return, query_ra, session_ptr);
     return;
 
@@ -6873,12 +6879,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
 
     std::string query_ra = query_str;
     if (use_calcite) {
+      TPlanResult parse_result;
       _return.addExecutionTime(measure<>::execution([&]() {
-        TPlanResult result;
-        std::tie(result, locks) =
+        std::tie(parse_result, locks) =
             parse_to_ra(query_state_proxy, query_str, {}, true, system_parameters_);
-        query_ra = result.plan_result;
+        query_ra = parse_result.plan_result;
       }));
+      _return.addParsingTime(parse_result.execution_time_ms);
     }
     std::string query_ra_calcite_explain;
     ExplainInfo explain(query_str);
@@ -6889,10 +6896,10 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
         return;
       }
       CHECK(!locks.empty());
-      query_ra_calcite_explain =
-          parse_to_ra(
-              query_state_proxy, explain.ActualQuery(), {}, false, system_parameters_)
-              .first.plan_result;
+      auto parse_pair = parse_to_ra(
+          query_state_proxy, explain.ActualQuery(), {}, false, system_parameters_);
+      _return.addParsingTime(parse_pair.first.execution_time_ms);
+      query_ra_calcite_explain = parse_pair.first.plan_result;
     }
     std::vector<PushedDownFilterInfo> filter_push_down_requests;
     auto submitted_time_str = query_state_proxy->getQuerySubmittedTime();
@@ -6950,12 +6957,13 @@ void DBHandler::sql_execute_impl(ExecutionResult& _return,
                     filter_push_down_info_for_request.input_next = req.input_next;
                     filter_push_down_info.push_back(filter_push_down_info_for_request);
                   }
-                  query_ra = parse_to_ra(query_state_proxy,
-                                         query_str,
-                                         filter_push_down_info,
-                                         false,
-                                         system_parameters_)
-                                 .first.plan_result;
+                  auto parse_pair = parse_to_ra(query_state_proxy,
+                                                query_str,
+                                                filter_push_down_info,
+                                                false,
+                                                system_parameters_);
+                  _return.addParsingTime(parse_pair.first.execution_time_ms);
+                  query_ra = parse_pair.first.plan_result;
                   _return.updateResultSet(query_ra, ExecutionResult::Explanation);
                 }
               } else {
@@ -7021,14 +7029,17 @@ void DBHandler::execute_rel_alg_with_filter_push_down(
     filter_push_down_info.push_back(filter_push_down_info_for_request);
   }
   // deriving the new relational algebra plan with respect to the pushed down filters
+  TPlanResult parse_result;
   _return.addExecutionTime(measure<>::execution([&]() {
-    query_ra = parse_to_ra(query_state_proxy,
-                           query_state_proxy->getQueryStr(),
-                           filter_push_down_info,
-                           false,
-                           system_parameters_)
-                   .first.plan_result;
+    auto parse_pair = parse_to_ra(query_state_proxy,
+                                  query_state_proxy->getQueryStr(),
+                                  filter_push_down_info,
+                                  false,
+                                  system_parameters_);
+    parse_result = parse_pair.first;
+    query_ra = parse_result.plan_result;
   }));
+  _return.addParsingTime(parse_result.execution_time_ms);
 
   // execute the new relational algebra plan:
   auto explain_info = ExplainInfo(ExplainInfo::ExplainType::None);
@@ -7782,7 +7793,6 @@ void DBHandler::shutdown() {
     render_handler_->shutdown();
   }
 
-
   Catalog_Namespace::SysCatalog::destroy();
 }
 
@@ -8355,6 +8365,7 @@ void DBHandler::executeDdl(
       _return.timings.compilation_queue_time_ms += rs_ptr->getCompilationQueueTime();
       _return.timings.kernel_execution_time_ms += rs_ptr->getKernelExecutionTime();
       _return.timings.compilation_time_ms += rs_ptr->getCompilationTime();
+      _return.timings.parsing_time_ms += result.getParsingTime();
       convertResultSet(result, *session_ptr, commandStr, _return);
     }
   }

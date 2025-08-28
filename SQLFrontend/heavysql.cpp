@@ -1087,8 +1087,7 @@ void print_status(ClientContext& context) {
   const std::string deployment_type = (is_cluster) ? "Cluster" : "Server";
 
   tss << std::left << std::setfill(' ') << std::setw(lhs_width);
-  tss << deployment_type + " Version"
-      << ": " << agg_version << " " << edition;
+  tss << deployment_type + " Version" << ": " << agg_version << " " << edition;
   tss << std::endl;
 
   const auto& host_id = context.cluster_status[0].host_id;
@@ -1117,18 +1116,15 @@ void print_status(ClientContext& context) {
     tss << "--------------------------------------------------" << std::endl;
 
     tss << std::left << std::setfill(' ') << std::setw(lhs_width);
-    tss << process_role + " Name"
-        << ": " << node->host_name << std::endl;
+    tss << process_role + " Name" << ": " << node->host_name << std::endl;
 
     tss << std::left << std::setfill(' ') << std::setw(lhs_width);
-    tss << process_role + " Start Time"
-        << ": " << buf << " : " << tm_ptr->tm_hour << ":" << tm_ptr->tm_min << ":"
-        << tm_ptr->tm_sec << std::endl;
+    tss << process_role + " Start Time" << ": " << buf << " : " << tm_ptr->tm_hour << ":"
+        << tm_ptr->tm_min << ":" << tm_ptr->tm_sec << std::endl;
 
     if (agg_version != node->version) {
       tss << std::left << std::setfill(' ') << std::setw(lhs_width);
-      tss << process_role + " Version "
-          << ": " << node->version << std::endl
+      tss << process_role + " Version " << ": " << node->version << std::endl
           << "\033[31m*** Version mismatch! ***\033[0m Please make "
              "sure All leaves, Aggregator and String Dictionary are running "
              "the same version of HeavyDB."
@@ -1382,17 +1378,20 @@ int main(int argc, char** argv) {
             }
             if (print_timing) {
               std::cout << "Execution time: " << context.query_return.execution_time_ms
-                        << " ms, Total time: " << context.query_return.total_time_ms << " ms"
-                        << std::endl;
+                        << " ms, Total time: " << context.query_return.total_time_ms
+                        << " ms" << std::endl;
               const auto& t = context.query_return.timings;
-              std::cout << "  GPU time: " << t.gpu_execution_time_ms << " ms, CPU time: "
-                        << t.cpu_execution_time_ms << " ms" << std::endl;
+              std::cout << "  GPU time: " << t.gpu_execution_time_ms
+                        << " ms, CPU time: " << t.cpu_execution_time_ms << " ms"
+                        << std::endl;
               std::cout << "  Executor queue time: " << t.executor_queue_time_ms << " ms,"
                         << " Kernel queue time: " << t.kernel_queue_time_ms << " ms,"
-                        << " Compilation queue time: " << t.compilation_queue_time_ms << " ms"
+                        << " Compilation queue time: " << t.compilation_queue_time_ms
+                        << " ms" << std::endl;
+              std::cout << "  Kernel time: " << t.kernel_execution_time_ms
+                        << " ms, Compilation time: " << t.compilation_time_ms
+                        << " ms, Parsing time: " << t.parsing_time_ms << " ms"
                         << std::endl;
-              std::cout << "  Kernel time: " << t.kernel_execution_time_ms << " ms, Compilation time: "
-                        << t.compilation_time_ms << " ms" << std::endl;
             }
             continue;
           }
@@ -1428,17 +1427,19 @@ int main(int argc, char** argv) {
           if (print_timing) {
             std::cout << row_count << " rows returned." << std::endl;
             std::cout << "Execution time: " << context.query_return.execution_time_ms
-                      << " ms, Total time: " << context.query_return.total_time_ms << " ms"
-                      << std::endl;
+                      << " ms, Total time: " << context.query_return.total_time_ms
+                      << " ms" << std::endl;
             const auto& t = context.query_return.timings;
-            std::cout << "  GPU time: " << t.gpu_execution_time_ms << " ms, CPU time: "
-                      << t.cpu_execution_time_ms << " ms" << std::endl;
+            std::cout << "  GPU time: " << t.gpu_execution_time_ms
+                      << " ms, CPU time: " << t.cpu_execution_time_ms << " ms"
+                      << std::endl;
             std::cout << "  Executor queue time: " << t.executor_queue_time_ms << " ms,"
                       << " Kernel queue time: " << t.kernel_queue_time_ms << " ms,"
-                      << " Compilation queue time: " << t.compilation_queue_time_ms << " ms"
-                      << std::endl;
-            std::cout << "  Kernel time: " << t.kernel_execution_time_ms << " ms, Compilation time: "
-                      << t.compilation_time_ms << " ms" << std::endl;
+                      << " Compilation queue time: " << t.compilation_queue_time_ms
+                      << " ms" << std::endl;
+            std::cout << "  Kernel time: " << t.kernel_execution_time_ms
+                      << " ms, Compilation time: " << t.compilation_time_ms
+                      << " ms, Parsing time: " << t.parsing_time_ms << " ms" << std::endl;
           }
         } else {
           (void)backchannel(TURN_OFF, nullptr);
