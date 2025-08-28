@@ -188,6 +188,7 @@ struct TTimingInfo {
   5: i64 cpu_execution_time_ms;
   6: i64 kernel_execution_time_ms;
   7: i64 compilation_time_ms;
+  8: i64 parsing_time_ms;
 }
 
 struct TQueryResult {

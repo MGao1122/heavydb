@@ -27,6 +27,7 @@ ExecutionResult::ExecutionResult()
     : filter_push_down_enabled_(false)
     , success_(true)
     , execution_time_ms_(0)
+    , parsing_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult::ExecutionResult(const std::shared_ptr<ResultSet>& rows,
@@ -36,6 +37,7 @@ ExecutionResult::ExecutionResult(const std::shared_ptr<ResultSet>& rows,
     , filter_push_down_enabled_(false)
     , success_(true)
     , execution_time_ms_(0)
+    , parsing_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult::ExecutionResult(ResultSetPtr&& result,
@@ -45,6 +47,7 @@ ExecutionResult::ExecutionResult(ResultSetPtr&& result,
     , filter_push_down_enabled_(false)
     , success_(true)
     , execution_time_ms_(0)
+    , parsing_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult::ExecutionResult(const ExecutionResult& that)
@@ -53,6 +56,7 @@ ExecutionResult::ExecutionResult(const ExecutionResult& that)
     , filter_push_down_enabled_(that.filter_push_down_enabled_)
     , success_(that.success_)
     , execution_time_ms_(that.execution_time_ms_)
+    , parsing_time_ms_(that.parsing_time_ms_)
     , type_(that.type_) {
   if (!pushed_down_filter_info_.empty() ||
       (filter_push_down_enabled_ && pushed_down_filter_info_.empty())) {
@@ -67,6 +71,7 @@ ExecutionResult::ExecutionResult(ExecutionResult&& that)
     , filter_push_down_enabled_(std::move(that.filter_push_down_enabled_))
     , success_(that.success_)
     , execution_time_ms_(that.execution_time_ms_)
+    , parsing_time_ms_(that.parsing_time_ms_)
     , type_(that.type_) {
   if (!pushed_down_filter_info_.empty() ||
       (filter_push_down_enabled_ && pushed_down_filter_info_.empty())) {
@@ -82,6 +87,7 @@ ExecutionResult::ExecutionResult(
     , filter_push_down_enabled_(filter_push_down_enabled)
     , success_(true)
     , execution_time_ms_(0)
+    , parsing_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult& ExecutionResult::operator=(const ExecutionResult& that) {
@@ -95,6 +101,7 @@ ExecutionResult& ExecutionResult::operator=(const ExecutionResult& that) {
   targets_meta_ = that.targets_meta_;
   success_ = that.success_;
   execution_time_ms_ = that.execution_time_ms_;
+  parsing_time_ms_ = that.parsing_time_ms_;
   type_ = that.type_;
   return *this;
 }
