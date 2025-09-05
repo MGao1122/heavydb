@@ -3245,6 +3245,8 @@ class RelAlgDag : public boost::noncopyable {
     return subqueries_;
   }
 
+  int64_t getOptimizationTime() const { return optimize_time_ms_; }
+
   // todo(yoonmin): simplify and improve query register logic
   void registerQueryHints(std::shared_ptr<RelAlgNode> node,
                           Hints* hints_delivered,
@@ -3787,6 +3789,7 @@ class RelAlgDag : public boost::noncopyable {
 
  private:
   BuildState build_state_;
+  int64_t optimize_time_ms_{0};
 
   std::vector<std::shared_ptr<RelAlgNode>> nodes_;
   std::vector<std::shared_ptr<RexSubQuery>> subqueries_;
@@ -3829,6 +3832,10 @@ struct RelAlgDagModifier {
   static void setBuildState(RelAlgDag& rel_alg_dag,
                             const RelAlgDag::BuildState build_state) {
     rel_alg_dag.build_state_ = build_state;
+  }
+
+  static void setOptimizationTime(RelAlgDag& rel_alg_dag, const int64_t time_ms) {
+    rel_alg_dag.optimize_time_ms_ = time_ms;
   }
 };
 

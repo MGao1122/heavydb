@@ -82,6 +82,11 @@ class ExecutionResult {
   int64_t getParsingTime() const { return parsing_time_ms_; }
   void addParsingTime(int64_t parsing_time_ms) { parsing_time_ms_ += parsing_time_ms; }
 
+  int64_t getOptimizationTime() const { return optimization_time_ms_; }
+  void addOptimizationTime(int64_t optimization_time_ms) {
+    optimization_time_ms_ += optimization_time_ms;
+  }
+
  private:
   ResultSetPtr result_;
   std::vector<TargetMetaInfo> targets_meta_;
@@ -93,6 +98,7 @@ class ExecutionResult {
   bool success_;
   uint64_t execution_time_ms_;
   uint64_t parsing_time_ms_;
+  uint64_t optimization_time_ms_;
   RType type_;
 };
 

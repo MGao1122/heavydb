@@ -3726,17 +3726,21 @@ std::unique_ptr<RelAlgDag> RelAlgDagBuilder::build(const rapidjson::Value& query
 }
 
 void RelAlgDagBuilder::optimizeDag(RelAlgDag& rel_alg_dag) {
-  auto optimize_start = timer_start();
-  ScopeGuard log_timer = [&optimize_start]() {
-    VLOG(1) << "Optimize RelAlgDag took: " << timer_stop(optimize_start) << " ms";
-  };
   auto const build_state = rel_alg_dag.getBuildState();
   if (build_state == RelAlgDag::BuildState::kBuiltOptimized) {
+    setOptimizationTime(rel_alg_dag, 0);
     return;
   }
 
   CHECK(build_state == RelAlgDag::BuildState::kBuiltNotOptimized)
       << static_cast<int>(build_state);
+
+  auto optimize_start = timer_start();
+  ScopeGuard log_timer = [&rel_alg_dag, &optimize_start]() {
+    auto opt_time = timer_stop(optimize_start);
+    VLOG(1) << "Optimize RelAlgDag took: " << opt_time << " ms";
+    setOptimizationTime(rel_alg_dag, opt_time);
+  };
 
   auto& nodes = getNodes(rel_alg_dag);
   auto& subqueries = getSubqueries(rel_alg_dag);

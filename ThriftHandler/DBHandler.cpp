@@ -1262,6 +1262,7 @@ void DBHandler::convertData(TQueryResult& _return,
     _return.timings.compilation_time_ms += rs->getCompilationTime();
   }
   _return.timings.parsing_time_ms += result.getParsingTime();
+  _return.timings.optimizer_time_ms += result.getOptimizationTime();
   if (result.empty()) {
     return;
   }
@@ -1532,6 +1533,7 @@ void DBHandler::sql_execute_df(TDataFrame& _return,
   _return.timings.kernel_execution_time_ms += result_set->getKernelExecutionTime();
   _return.timings.compilation_time_ms += result_set->getCompilationTime();
   _return.timings.parsing_time_ms += execution_result.getParsingTime();
+  _return.timings.optimizer_time_ms += execution_result.getOptimizationTime();
   const auto converter = std::make_unique<ArrowResultSetConverter>(
       result_set,
       data_mgr_,
@@ -6461,6 +6463,7 @@ std::vector<PushedDownFilterInfo> DBHandler::execute_rel_alg(
       g_pending_query_interrupt_freq,
       g_optimize_cuda_block_and_grid_sizes};
   const auto parsing_time_ms = _return.getParsingTime();
+  const auto optimizer_time_ms = _return.getOptimizationTime();
   auto execution_time_ms =
       _return.getExecutionTime() + measure<>::execution([&]() {
         _return = ra_executor.executeRelAlgQuery(
@@ -6473,6 +6476,8 @@ std::vector<PushedDownFilterInfo> DBHandler::execute_rel_alg(
   }
   _return.setExecutionTime(execution_time_ms);
   _return.addParsingTime(parsing_time_ms);
+  _return.addOptimizationTime(optimizer_time_ms +
+                              ra_executor.getRelAlgDag()->getOptimizationTime());
   const auto& filter_push_down_info = _return.getPushedDownFilterInfo();
   if (!filter_push_down_info.empty()) {
     return filter_push_down_info;
@@ -8381,6 +8386,7 @@ void DBHandler::executeDdl(
       _return.timings.kernel_execution_time_ms += rs_ptr->getKernelExecutionTime();
       _return.timings.compilation_time_ms += rs_ptr->getCompilationTime();
       _return.timings.parsing_time_ms += result.getParsingTime();
+      _return.timings.optimizer_time_ms += result.getOptimizationTime();
       convertResultSet(result, *session_ptr, commandStr, _return);
     }
   }

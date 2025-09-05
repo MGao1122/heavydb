@@ -28,6 +28,7 @@ ExecutionResult::ExecutionResult()
     , success_(true)
     , execution_time_ms_(0)
     , parsing_time_ms_(0)
+    , optimization_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult::ExecutionResult(const std::shared_ptr<ResultSet>& rows,
@@ -38,6 +39,7 @@ ExecutionResult::ExecutionResult(const std::shared_ptr<ResultSet>& rows,
     , success_(true)
     , execution_time_ms_(0)
     , parsing_time_ms_(0)
+    , optimization_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult::ExecutionResult(ResultSetPtr&& result,
@@ -48,6 +50,7 @@ ExecutionResult::ExecutionResult(ResultSetPtr&& result,
     , success_(true)
     , execution_time_ms_(0)
     , parsing_time_ms_(0)
+    , optimization_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult::ExecutionResult(const ExecutionResult& that)
@@ -57,6 +60,7 @@ ExecutionResult::ExecutionResult(const ExecutionResult& that)
     , success_(that.success_)
     , execution_time_ms_(that.execution_time_ms_)
     , parsing_time_ms_(that.parsing_time_ms_)
+    , optimization_time_ms_(that.optimization_time_ms_)
     , type_(that.type_) {
   if (!pushed_down_filter_info_.empty() ||
       (filter_push_down_enabled_ && pushed_down_filter_info_.empty())) {
@@ -72,6 +76,7 @@ ExecutionResult::ExecutionResult(ExecutionResult&& that)
     , success_(that.success_)
     , execution_time_ms_(that.execution_time_ms_)
     , parsing_time_ms_(that.parsing_time_ms_)
+    , optimization_time_ms_(that.optimization_time_ms_)
     , type_(that.type_) {
   if (!pushed_down_filter_info_.empty() ||
       (filter_push_down_enabled_ && pushed_down_filter_info_.empty())) {
@@ -88,6 +93,7 @@ ExecutionResult::ExecutionResult(
     , success_(true)
     , execution_time_ms_(0)
     , parsing_time_ms_(0)
+    , optimization_time_ms_(0)
     , type_(QueryResult) {}
 
 ExecutionResult& ExecutionResult::operator=(const ExecutionResult& that) {
@@ -102,6 +108,7 @@ ExecutionResult& ExecutionResult::operator=(const ExecutionResult& that) {
   success_ = that.success_;
   execution_time_ms_ = that.execution_time_ms_;
   parsing_time_ms_ = that.parsing_time_ms_;
+  optimization_time_ms_ = that.optimization_time_ms_;
   type_ = that.type_;
   return *this;
 }
