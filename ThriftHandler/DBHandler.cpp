@@ -6463,7 +6463,8 @@ std::vector<PushedDownFilterInfo> DBHandler::execute_rel_alg(
       g_pending_query_interrupt_freq,
       g_optimize_cuda_block_and_grid_sizes};
   const auto parsing_time_ms = _return.getParsingTime();
-  const auto optimizer_time_ms = _return.getOptimizationTime();
+  const auto prev_optimizer_time_ms = _return.getOptimizationTime();
+  const auto optimizer_time_ms = ra_executor.getRelAlgDag()->getOptimizationTime();
   auto execution_time_ms =
       _return.getExecutionTime() + measure<>::execution([&]() {
         _return = ra_executor.executeRelAlgQuery(
@@ -6476,8 +6477,7 @@ std::vector<PushedDownFilterInfo> DBHandler::execute_rel_alg(
   }
   _return.setExecutionTime(execution_time_ms);
   _return.addParsingTime(parsing_time_ms);
-  _return.addOptimizationTime(optimizer_time_ms +
-                              ra_executor.getRelAlgDag()->getOptimizationTime());
+  _return.addOptimizationTime(prev_optimizer_time_ms + optimizer_time_ms);
   const auto& filter_push_down_info = _return.getPushedDownFilterInfo();
   if (!filter_push_down_info.empty()) {
     return filter_push_down_info;
