@@ -392,8 +392,10 @@ class ResultSet {
 
   void setQueueTime(const int64_t queue_time);
   void setKernelQueueTime(const int64_t kernel_queue_time);
+  void setCompilationQueueTime(const int64_t compilation_queue_time);
   void addCompilationQueueTime(const int64_t compilation_queue_time);
   void setKernelExecutionTime(const int64_t kernel_execution_time);
+  void setCompilationTime(const int64_t compilation_time);
   void addCompilationTime(const int64_t compilation_time);
 
   int64_t getQueueTime() const;

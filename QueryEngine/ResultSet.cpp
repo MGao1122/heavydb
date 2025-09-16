@@ -724,12 +724,20 @@ void ResultSet::setKernelQueueTime(const int64_t kernel_queue_time) {
   timings_.kernel_queue_time = kernel_queue_time;
 }
 
+void ResultSet::setCompilationQueueTime(const int64_t compilation_queue_time) {
+  timings_.compilation_queue_time = compilation_queue_time;
+}
+
 void ResultSet::addCompilationQueueTime(const int64_t compilation_queue_time) {
   timings_.compilation_queue_time += compilation_queue_time;
 }
 
 void ResultSet::setKernelExecutionTime(const int64_t kernel_execution_time) {
   timings_.kernel_execution_time = kernel_execution_time;
+}
+
+void ResultSet::setCompilationTime(const int64_t compilation_time) {
+  timings_.compilation_time = compilation_time;
 }
 
 void ResultSet::addCompilationTime(const int64_t compilation_time) {

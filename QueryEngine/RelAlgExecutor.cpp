@@ -1336,6 +1336,41 @@ void RelAlgExecutor::prepareLeafExecution(
   executor_->agg_col_range_cache_ = agg_col_range;
 }
 
+namespace {
+
+void aggregate_compilation_timings(const RaExecutionSequence& seq,
+                                   const size_t first_step_idx,
+                                   const size_t last_step_idx) {
+  if (last_step_idx < first_step_idx) {
+    return;
+  }
+
+  auto final_desc = seq.getDescriptor(last_step_idx);
+  CHECK(final_desc);
+  const auto final_rows = final_desc->getResult().getRows();
+  if (!final_rows) {
+    return;
+  }
+
+  int64_t total_compilation_time{0};
+  int64_t total_compilation_queue_time{0};
+  for (size_t step_idx = first_step_idx; step_idx <= last_step_idx; ++step_idx) {
+    const auto step_desc = seq.getDescriptor(step_idx);
+    CHECK(step_desc);
+    const auto step_rows = step_desc->getResult().getRows();
+    if (!step_rows) {
+      continue;
+    }
+    total_compilation_time += step_rows->getCompilationTime();
+    total_compilation_queue_time += step_rows->getCompilationQueueTime();
+  }
+
+  final_rows->setCompilationTime(total_compilation_time);
+  final_rows->setCompilationQueueTime(total_compilation_queue_time);
+}
+
+}  // namespace
+
 ExecutionResult RelAlgExecutor::executeRelAlgSeq(const RaExecutionSequence& seq,
                                                  const CompilationOptions& co,
                                                  const ExecutionOptions& eo,
@@ -1450,6 +1485,7 @@ ExecutionResult RelAlgExecutor::executeRelAlgSeq(const RaExecutionSequence& seq,
     }
   }
 
+  aggregate_compilation_timings(seq, 0, num_steps);
   return seq.getDescriptor(num_steps)->getResult();
 }
 
@@ -1499,6 +1535,8 @@ ExecutionResult RelAlgExecutor::executeRelAlgSubSeq(
     }
   }
 
+  CHECK_GT(interval.second, interval.first);
+  aggregate_compilation_timings(seq, interval.first, interval.second - 1);
   return seq.getDescriptor(interval.second - 1)->getResult();
 }
 
