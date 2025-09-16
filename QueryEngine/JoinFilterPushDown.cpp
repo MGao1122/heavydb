@@ -243,6 +243,8 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryWithFilterPushDown(
     eo_modified.just_calcite_explain = false;
 
     // Dispatch the subqueries first
+    int64_t subquery_compilation_time_ms{0};
+    int64_t subquery_compilation_queue_time_ms{0};
     for (auto subquery : subqueries) {
       // Execute the subquery and cache the result.
       RelAlgExecutor ra_executor(executor_, nullptr, gfx_context_);
@@ -251,9 +253,23 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryWithFilterPushDown(
       RaExecutionSequence subquery_seq(subquery_ra, executor_, eo.just_validate);
       auto result =
           ra_executor.executeRelAlgSeq(subquery_seq, co, eo_modified, nullptr, 0);
+      if (const auto& rows = result.getRows()) {
+        subquery_compilation_time_ms += rows->getCompilationTime();
+        subquery_compilation_queue_time_ms += rows->getCompilationQueueTime();
+      }
       subquery->setExecutionResult(std::make_shared<ExecutionResult>(result));
     }
-    return executeRelAlgSeq(seq, co, eo_modified, render_info, queue_time_ms);
+    auto execution_result =
+        executeRelAlgSeq(seq, co, eo_modified, render_info, queue_time_ms);
+    if (const auto& rows = execution_result.getRows()) {
+      if (subquery_compilation_time_ms) {
+        rows->addCompilationTime(subquery_compilation_time_ms);
+      }
+      if (subquery_compilation_queue_time_ms) {
+        rows->addCompilationQueueTime(subquery_compilation_queue_time_ms);
+      }
+    }
+    return execution_result;
   }
   // else
   return executeRelAlgSeq(seq, co, eo, render_info, queue_time_ms);

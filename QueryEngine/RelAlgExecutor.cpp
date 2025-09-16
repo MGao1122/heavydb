@@ -751,6 +751,7 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptio
 
   // Dispatch the subqueries first
   const auto global_hints = getGlobalQueryHint();
+  CompilationTimingTotals subquery_compilation_totals;
   for (auto subquery : getSubqueries()) {
     const auto subquery_ra = subquery->getRelAlg();
     CHECK(subquery_ra);
@@ -772,9 +773,13 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptio
     }
     RaExecutionSequence subquery_seq(subquery_ra, executor_, eo.just_validate);
     auto result = subquery_executor.executeRelAlgSeq(subquery_seq, co, eo, nullptr, 0);
+    accumulate_compilation_totals(result, subquery_compilation_totals);
     subquery->setExecutionResult(std::make_shared<ExecutionResult>(result));
   }
-  return executeRelAlgSeq(ed_seq, co, eo, render_info, queue_time_ms);
+  auto execution_result = executeRelAlgSeq(ed_seq, co, eo, render_info, queue_time_ms);
+  add_compilation_totals_to_result_set(execution_result.getRows(),
+                                       subquery_compilation_totals);
+  return execution_result;
 }
 
 AggregatedColRange RelAlgExecutor::computeColRangesCache() {
@@ -1338,6 +1343,11 @@ void RelAlgExecutor::prepareLeafExecution(
 
 namespace {
 
+struct CompilationTimingTotals {
+  int64_t compilation_time{0};
+  int64_t compilation_queue_time{0};
+};
+
 void aggregate_compilation_timings(const RaExecutionSequence& seq,
                                    const size_t first_step_idx,
                                    const size_t last_step_idx) {
@@ -1367,6 +1377,30 @@ void aggregate_compilation_timings(const RaExecutionSequence& seq,
 
   final_rows->setCompilationTime(total_compilation_time);
   final_rows->setCompilationQueueTime(total_compilation_queue_time);
+}
+
+void accumulate_compilation_totals(const ExecutionResult& execution_result,
+                                   CompilationTimingTotals& totals) {
+  const auto& rows = execution_result.getRows();
+  if (!rows) {
+    return;
+  }
+  totals.compilation_time += rows->getCompilationTime();
+  totals.compilation_queue_time += rows->getCompilationQueueTime();
+}
+
+void add_compilation_totals_to_result_set(
+    const std::shared_ptr<ResultSet>& rows,
+    const CompilationTimingTotals& totals) {
+  if (!rows) {
+    return;
+  }
+  if (totals.compilation_time) {
+    rows->addCompilationTime(totals.compilation_time);
+  }
+  if (totals.compilation_queue_time) {
+    rows->addCompilationQueueTime(totals.compilation_queue_time);
+  }
 }
 
 }  // namespace
