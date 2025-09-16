@@ -620,6 +620,70 @@ ExecutionResult RelAlgExecutor::executeRelAlgQuery(const CompilationOptions& co,
   return run_query(co_cpu);
 }
 
+namespace {
+
+struct CompilationTimingTotals {
+  int64_t compilation_time{0};
+  int64_t compilation_queue_time{0};
+};
+
+void aggregate_compilation_timings(const RaExecutionSequence& seq,
+                                   const size_t first_step_idx,
+                                   const size_t last_step_idx) {
+  if (last_step_idx < first_step_idx) {
+    return;
+  }
+
+  auto final_desc = seq.getDescriptor(last_step_idx);
+  CHECK(final_desc);
+  const auto final_rows = final_desc->getResult().getRows();
+  if (!final_rows) {
+    return;
+  }
+
+  int64_t total_compilation_time{0};
+  int64_t total_compilation_queue_time{0};
+  for (size_t step_idx = first_step_idx; step_idx <= last_step_idx; ++step_idx) {
+    const auto step_desc = seq.getDescriptor(step_idx);
+    CHECK(step_desc);
+    const auto step_rows = step_desc->getResult().getRows();
+    if (!step_rows) {
+      continue;
+    }
+    total_compilation_time += step_rows->getCompilationTime();
+    total_compilation_queue_time += step_rows->getCompilationQueueTime();
+  }
+
+  final_rows->setCompilationTime(total_compilation_time);
+  final_rows->setCompilationQueueTime(total_compilation_queue_time);
+}
+
+void accumulate_compilation_totals(const ExecutionResult& execution_result,
+                                   CompilationTimingTotals& totals) {
+  const auto& rows = execution_result.getRows();
+  if (!rows) {
+    return;
+  }
+  totals.compilation_time += rows->getCompilationTime();
+  totals.compilation_queue_time += rows->getCompilationQueueTime();
+}
+
+void add_compilation_totals_to_result_set(
+    const std::shared_ptr<ResultSet>& rows,
+    const CompilationTimingTotals& totals) {
+  if (!rows) {
+    return;
+  }
+  if (totals.compilation_time) {
+    rows->addCompilationTime(totals.compilation_time);
+  }
+  if (totals.compilation_queue_time) {
+    rows->addCompilationQueueTime(totals.compilation_queue_time);
+  }
+}
+
+}  // namespace
+
 ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptions& co,
                                                           const ExecutionOptions& eo,
                                                           const bool just_explain_plan,
@@ -1340,70 +1404,6 @@ void RelAlgExecutor::prepareLeafExecution(
   executor_->table_generations_ = table_generations;
   executor_->agg_col_range_cache_ = agg_col_range;
 }
-
-namespace {
-
-struct CompilationTimingTotals {
-  int64_t compilation_time{0};
-  int64_t compilation_queue_time{0};
-};
-
-void aggregate_compilation_timings(const RaExecutionSequence& seq,
-                                   const size_t first_step_idx,
-                                   const size_t last_step_idx) {
-  if (last_step_idx < first_step_idx) {
-    return;
-  }
-
-  auto final_desc = seq.getDescriptor(last_step_idx);
-  CHECK(final_desc);
-  const auto final_rows = final_desc->getResult().getRows();
-  if (!final_rows) {
-    return;
-  }
-
-  int64_t total_compilation_time{0};
-  int64_t total_compilation_queue_time{0};
-  for (size_t step_idx = first_step_idx; step_idx <= last_step_idx; ++step_idx) {
-    const auto step_desc = seq.getDescriptor(step_idx);
-    CHECK(step_desc);
-    const auto step_rows = step_desc->getResult().getRows();
-    if (!step_rows) {
-      continue;
-    }
-    total_compilation_time += step_rows->getCompilationTime();
-    total_compilation_queue_time += step_rows->getCompilationQueueTime();
-  }
-
-  final_rows->setCompilationTime(total_compilation_time);
-  final_rows->setCompilationQueueTime(total_compilation_queue_time);
-}
-
-void accumulate_compilation_totals(const ExecutionResult& execution_result,
-                                   CompilationTimingTotals& totals) {
-  const auto& rows = execution_result.getRows();
-  if (!rows) {
-    return;
-  }
-  totals.compilation_time += rows->getCompilationTime();
-  totals.compilation_queue_time += rows->getCompilationQueueTime();
-}
-
-void add_compilation_totals_to_result_set(
-    const std::shared_ptr<ResultSet>& rows,
-    const CompilationTimingTotals& totals) {
-  if (!rows) {
-    return;
-  }
-  if (totals.compilation_time) {
-    rows->addCompilationTime(totals.compilation_time);
-  }
-  if (totals.compilation_queue_time) {
-    rows->addCompilationQueueTime(totals.compilation_queue_time);
-  }
-}
-
-}  // namespace
 
 ExecutionResult RelAlgExecutor::executeRelAlgSeq(const RaExecutionSequence& seq,
                                                  const CompilationOptions& co,
