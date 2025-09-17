@@ -1208,6 +1208,48 @@ bool is_update_or_delete_or_window_query_step(const RelAlgNode* root) {
 
 }  // namespace
 
+namespace {
+
+class QueryStepTimingAccumulator {
+ public:
+  void add(const ExecutionResult& execution_result) {
+    add(execution_result.getRows());
+  }
+
+  void add(const ResultSetPtr& result_set) {
+    if (!result_set) {
+      return;
+    }
+    const auto* raw_ptr = result_set.get();
+    if (seen_result_sets_.count(raw_ptr)) {
+      return;
+    }
+    seen_result_sets_.insert(raw_ptr);
+    totals_.kernel_queue_time += result_set->getKernelQueueTime();
+    totals_.compilation_queue_time += result_set->getCompilationQueueTime();
+    totals_.kernel_execution_time += result_set->getKernelExecutionTime();
+    totals_.compilation_time += result_set->getCompilationTime();
+  }
+
+  void applyTo(const ResultSetPtr& result_set) const {
+    if (!result_set) {
+      return;
+    }
+    result_set->setKernelQueueTime(totals_.kernel_queue_time);
+    result_set->setKernelExecutionTime(totals_.kernel_execution_time);
+    result_set->addCompilationQueueTime(totals_.compilation_queue_time -
+                                        result_set->getCompilationQueueTime());
+    result_set->addCompilationTime(totals_.compilation_time -
+                                   result_set->getCompilationTime());
+  }
+
+ private:
+  ResultSet::QueryExecutionTimings totals_{};
+  std::unordered_set<const ResultSet*> seen_result_sets_;
+};
+
+}  // namespace
+
 QueryStepExecutionResult RelAlgExecutor::executeRelAlgQuerySingleStep(
     const RaExecutionSequence& seq,
     const size_t step_idx,
@@ -1370,6 +1412,7 @@ ExecutionResult RelAlgExecutor::executeRelAlgSeq(const RaExecutionSequence& seq,
   };
 
   const auto exec_desc_count = get_descriptor_count();
+  QueryStepTimingAccumulator timing_accumulator;
   auto eo_copied = eo;
   if (seq.hasQueryStepForUnion()) {
     // we currently do not support resultset recycling when an input query
@@ -1448,9 +1491,13 @@ ExecutionResult RelAlgExecutor::executeRelAlgSeq(const RaExecutionSequence& seq,
                         (i == num_steps) ? render_info : nullptr,
                         queue_time_ms);
     }
+
+    timing_accumulator.add(exec_desc.getResult());
   }
 
-  return seq.getDescriptor(num_steps)->getResult();
+  auto final_result = seq.getDescriptor(num_steps)->getResult();
+  timing_accumulator.applyTo(final_result.getRows());
+  return final_result;
 }
 
 ExecutionResult RelAlgExecutor::executeRelAlgSubSeq(
@@ -1465,6 +1512,7 @@ ExecutionResult RelAlgExecutor::executeRelAlgSubSeq(
   executor_->temporary_tables_ = &temporary_tables_;
   decltype(left_deep_join_info_)().swap(left_deep_join_info_);
   time(&now_);
+  QueryStepTimingAccumulator timing_accumulator;
   for (size_t i = interval.first; i < interval.second; i++) {
     // only render on the last step
     try {
@@ -1497,9 +1545,13 @@ ExecutionResult RelAlgExecutor::executeRelAlgSubSeq(
                         (i == interval.second - 1) ? render_info : nullptr,
                         queue_time_ms);
     }
+
+    timing_accumulator.add(seq.getDescriptor(i)->getResult());
   }
 
-  return seq.getDescriptor(interval.second - 1)->getResult();
+  auto final_result = seq.getDescriptor(interval.second - 1)->getResult();
+  timing_accumulator.applyTo(final_result.getRows());
+  return final_result;
 }
 
 namespace {
