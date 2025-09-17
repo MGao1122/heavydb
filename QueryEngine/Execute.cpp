@@ -2155,6 +2155,7 @@ ResultSetPtr Executor::executeWorkUnit(size_t& max_groups_buffer_entry_guess,
   VLOG(1) << "Executor " << executor_id_ << " is executing work unit:" << ra_exe_unit_in;
   auto copied_co = co;
   copied_co.device_type = getDeviceTypeForTargets(ra_exe_unit_in, co.device_type);
+  compilation_time_ms_ = 0;
   ScopeGuard cleanup_post_execution = [this] {
     // cleanup/unpin GPU buffer allocations
     // TODO: separate out this state into a single object
@@ -2412,6 +2413,7 @@ void Executor::executeWorkUnitPerFragment(
     const Catalog_Namespace::Catalog& cat,
     PerFragmentCallBack& cb,
     const std::set<size_t>& fragment_indexes_param) {
+  compilation_time_ms_ = 0;
   const auto [ra_exe_unit, deleted_cols_map] = addDeletedColumn(ra_exe_unit_in, co);
   ColumnCacheMap column_cache;
 
@@ -2491,6 +2493,7 @@ ResultSetPtr Executor::executeTableFunction(
     const ExecutionOptions& eo,
     gfx::GfxContext* gfx_context) {
   INJECT_TIMER(Exec_executeTableFunction);
+  compilation_time_ms_ = 0;
   if (eo.just_validate) {
     QueryMemoryDescriptor query_mem_desc(this,
                                          /*entry_count=*/0,

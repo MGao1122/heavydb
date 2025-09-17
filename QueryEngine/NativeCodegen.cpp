@@ -15,6 +15,7 @@
  */
 
 #include "QueryEngine/Execute.h"
+#include "Shared/scope.h"
 
 #if LLVM_VERSION_MAJOR < 14
 static_assert(false, "LLVM Version >= 14 is required.");
@@ -2930,6 +2931,10 @@ Executor::compileWorkUnit(const std::vector<InputTableInfo>& query_infos,
                           ColumnCacheMap& column_cache,
                           RenderInfo* render_info) {
   auto timer = DEBUG_TIMER(__func__);
+  const auto previous_compilation_time_ms = compilation_time_ms_;
+  ScopeGuard restore_compilation_time = [this, previous_compilation_time_ms]() {
+    compilation_time_ms_ += previous_compilation_time_ms;
+  };
 
   auto compile_begin = timer_start();
   if (co.device_type == ExecutorDeviceType::GPU) {
