@@ -1353,6 +1353,7 @@ class Executor {
     return executor_id_;
   };
   void addCompilationTime(int64_t t) { compilation_time_ms_ += t; }
+  void resetExecutionTimings();
   QuerySessionId& getCurrentQuerySession(
       heavyai::shared_lock<heavyai::shared_mutex>& read_lock);
   QuerySessionStatus::QueryStatus getQuerySessionStatus(

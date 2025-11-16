@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <iostream>
+#include <fstream>
+
 #include "QueryEngine/Execute.h"
 
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -473,9 +476,7 @@ Executor::CgenStateManager::CgenStateManager(
 {
   executor_.compilation_queue_time_ms_ += timer_stop(lock_queue_clock_);
   // nukeOldState creates new CgenState and PlanState instances for
-  // the subsequent code generation.  It also resets
-  // kernel_queue_time_ms_ and compilation_queue_time_ms_ that we do
-  // not currently restore.. should we accumulate these timings?
+  // the subsequent code generation.
   executor_.nukeOldState(allow_lazy_fetch, query_infos, deleted_cols_map, ra_exe_unit);
 }
 
@@ -3243,7 +3244,9 @@ void Executor::launchKernelsImpl(SharedKernelContext& shared_context,
       shared_context.addDeviceResults(std::move(results), {});
     }
   }
-  kernel_execution_time_ms_ += timer_stop(exec_begin);
+  auto time = timer_stop(exec_begin);
+  kernel_execution_time_ms_ += time;
+  std::cout << "Kernel execution time: " << time << " ms\n";
 }
 
 void Executor::launchKernelsLocked(
@@ -4391,10 +4394,6 @@ void Executor::nukeOldState(const bool allow_lazy_fetch,
                             const std::vector<InputTableInfo>& query_infos,
                             const PlanState::DeletedColumnsMap& deleted_cols_map,
                             const RelAlgExecutionUnit* ra_exe_unit) {
-  kernel_queue_time_ms_ = 0;
-  compilation_queue_time_ms_ = 0;
-  kernel_execution_time_ms_ = 0;
-  compilation_time_ms_ = 0;
   const bool contains_left_deep_outer_join =
       ra_exe_unit && std::find_if(ra_exe_unit->join_quals.begin(),
                                   ra_exe_unit->join_quals.end(),
@@ -5093,6 +5092,13 @@ void Executor::setupCaching(const std::unordered_set<PhysicalInput>& phys_inputs
       computeStringDictionaryGenerations(phys_inputs));
   agg_col_range_cache_ = computeColRangesCache(phys_inputs);
   table_generations_ = computeTableGenerations(phys_table_ids);
+}
+
+void Executor::resetExecutionTimings() {
+  kernel_queue_time_ms_ = 0;
+  compilation_queue_time_ms_ = 0;
+  kernel_execution_time_ms_ = 0;
+  compilation_time_ms_ = 0;
 }
 
 heavyai::shared_mutex& Executor::getDataRecyclerLock() {

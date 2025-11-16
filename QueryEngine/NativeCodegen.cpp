@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <iostream>
+#include <fstream>
+
 #include "QueryEngine/Execute.h"
 
 #if LLVM_VERSION_MAJOR < 14
@@ -3346,7 +3349,9 @@ Executor::compileWorkUnit(const std::vector<InputTableInfo>& query_infos,
           llvm_ir,
           std::move(gpu_smem_context)},
       std::move(query_mem_desc));
-  compilation_time_ms_ += timer_stop(compile_begin);
+  auto time = timer_stop(compile_begin);
+  compilation_time_ms_ += time;
+  std::cout << "Compilation time: " << time << " ms\n";
   return result;
 }
 

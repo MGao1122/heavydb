@@ -1519,7 +1519,7 @@ void DBHandler::sql_execute_df(TDataFrame& _return,
   const auto executor_results_device_type = results_device_type == TDeviceType::CPU
                                                 ? ExecutorDeviceType::CPU
                                                 : ExecutorDeviceType::GPU;
-  _return.execution_time_ms =
+  _return.execution_time_ms +=
       execution_result.getExecutionTime() - result_set->getQueueTime();
   if (result_set->getDeviceType() == ExecutorDeviceType::GPU) {
     _return.timings.gpu_execution_time_ms += execution_result.getExecutionTime();

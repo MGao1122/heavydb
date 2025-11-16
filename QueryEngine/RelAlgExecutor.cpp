@@ -632,6 +632,8 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptio
   query_dag_->resetQueryExecutionState();
   const auto& ra = query_dag_->getRootNode();
 
+  executor_->resetExecutionTimings();
+
   // capture the lock acquistion time
   auto clock_begin = timer_start();
   if (g_enable_dynamic_watchdog || g_enable_runtime_query_interrupt) {
