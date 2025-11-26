@@ -2154,6 +2154,11 @@ ResultSetPtr Executor::executeWorkUnit(size_t& max_groups_buffer_entry_guess,
                                        const bool has_cardinality_estimation,
                                        ColumnCacheMap& column_cache) {
   VLOG(1) << "Executor " << executor_id_ << " is executing work unit:" << ra_exe_unit_in;
+  const auto execute_work_unit_begin = timer_start();
+  ScopeGuard log_execute_work_unit = [this, execute_work_unit_begin]() {
+    std::cout << "Executor::executeWorkUnit id=" << executor_id_
+              << " time: " << timer_stop(execute_work_unit_begin) << " ms\n";
+  };
   auto copied_co = co;
   copied_co.device_type = getDeviceTypeForTargets(ra_exe_unit_in, co.device_type);
   ScopeGuard cleanup_post_execution = [this] {

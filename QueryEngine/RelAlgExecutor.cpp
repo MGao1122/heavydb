@@ -15,6 +15,7 @@
  */
 
 #include "QueryEngine/RelAlgExecutor.h"
+#include <iostream>
 #include "DataMgr/ForeignStorage/ForeignStorageException.h"
 #include "DataMgr/ForeignStorage/FsiChunkUtils.h"
 #include "Fragmenter/InsertDataLoader.h"
@@ -587,6 +588,11 @@ ExecutionResult RelAlgExecutor::executeRelAlgQuery(const CompilationOptions& co,
 
   auto timer = DEBUG_TIMER(__func__);
   INJECT_TIMER(executeRelAlgQuery);
+  const auto rel_alg_query_begin = timer_start();
+  ScopeGuard log_execute_rel_alg_query = [&]() {
+    std::cout << "RelAlgExecutor::executeRelAlgQuery time: "
+              << timer_stop(rel_alg_query_begin) << " ms\n";
+  };
 
   auto run_query = [&](const CompilationOptions& co_in) {
     auto execution_result = executeRelAlgQueryNoRetry(
@@ -1346,6 +1352,11 @@ ExecutionResult RelAlgExecutor::executeRelAlgSeq(const RaExecutionSequence& seq,
                                                  const bool with_existing_temp_tables) {
   INJECT_TIMER(executeRelAlgSeq);
   auto timer = DEBUG_TIMER(__func__);
+  const auto rel_alg_seq_begin = timer_start();
+  ScopeGuard log_execute_rel_alg_seq = [&]() {
+    std::cout << "executeRelAlgSeq time: " << timer_stop(rel_alg_seq_begin)
+              << " ms\n";
+  };
   if (!with_existing_temp_tables) {
     decltype(temporary_tables_)().swap(temporary_tables_);
   }
@@ -1632,6 +1643,12 @@ void RelAlgExecutor::executeRelAlgStep(const RaExecutionSequence& seq,
                                        const int64_t queue_time_ms) {
   INJECT_TIMER(executeRelAlgStep);
   auto timer = DEBUG_TIMER(__func__);
+  const auto rel_alg_step_begin = timer_start();
+  ScopeGuard log_execute_rel_alg_step = [step_idx, rel_alg_step_begin]() {
+    const auto elapsed_ms = timer_stop(rel_alg_step_begin);
+    std::cout << "executeRelAlgStep(" << step_idx << ") time: " << elapsed_ms
+              << " ms\n\n\n";
+  };
   auto exec_desc_ptr = seq.getDescriptor(step_idx);
   CHECK(exec_desc_ptr);
   auto& exec_desc = *exec_desc_ptr;
@@ -3466,6 +3483,11 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
                                             RenderInfo* render_info,
                                             const int64_t queue_time_ms) {
   auto timer = DEBUG_TIMER(__func__);
+  const auto execute_sort_begin = timer_start();
+  ScopeGuard log_execute_sort = [&]() {
+    std::cout << "RelAlgExecutor::executeSort time: "
+              << timer_stop(execute_sort_begin) << " ms\n";
+  };
   check_sort_node_source_constraint(sort);
   const auto source = sort->getInput(0);
   const bool is_aggregate = node_is_aggregate(source);
@@ -3483,13 +3505,19 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
     const size_t offset = sort->getOffset();
     if (limit || offset) {
       if (!order_entries.empty()) {
+        const auto cached_sort_begin = timer_start();
         result_rows->sort(
             order_entries, get_limit_value(limit) + offset, co.device_type, executor_);
+        std::cout << "executeSort cached sort time: "
+                  << timer_stop(cached_sort_begin) << " ms\n";
       }
+      const auto cached_trim_begin = timer_start();
       result_rows->dropFirstN(offset);
       if (limit) {
         result_rows->keepFirstN(get_limit_value(limit));
       }
+      std::cout << "executeSort cached limit/offset trimming time: "
+                << timer_stop(cached_trim_begin) << " ms\n";
     }
 
     if (render_info) {
@@ -3593,9 +3621,13 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
     if (sort->collationCount() != 0 && !rows_to_sort->definitelyHasNoRows() &&
         !use_speculative_top_n_sort) {
       const size_t top_n = limit_val + offset;
+      const auto primary_sort_begin = timer_start();
       rows_to_sort->sort(order_entries, top_n, co.device_type, executor_);
+      std::cout << "executeSort primary rows_to_sort->sort time: "
+                << timer_stop(primary_sort_begin) << " ms\n";
     }
     if (limit || offset) {
+      const auto trim_begin = timer_start();
       if (g_cluster && sort->collationCount() == 0) {
         if (offset >= rows_to_sort->rowCount()) {
           rows_to_sort->dropFirstN(offset);
@@ -3608,6 +3640,8 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
           rows_to_sort->keepFirstN(limit_val);
         }
       }
+      std::cout << "executeSort limit/offset trimming time: "
+                << timer_stop(trim_begin) << " ms\n";
     }
     return {rows_to_sort, source_result.getTargetsMeta()};
   };

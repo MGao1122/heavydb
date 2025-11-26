@@ -33,6 +33,7 @@
 #include <cstring>
 #include <exception>
 #include <fstream>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <random>
@@ -2089,9 +2090,10 @@ const DictDescriptor* Catalog::getMetadataForDict(const int dict_id,
       });
       LOG(INFO) << "Time to load Dictionary " << dd->dictRef.dbId << "_"
                 << dd->dictRef.dictId << " was " << time_ms << "ms";
+      // std::cout << "Load Dictionary: " << time_ms << "ms" << std::endl;
     }
   }
-
+  
   return dd.get();
 }
 
