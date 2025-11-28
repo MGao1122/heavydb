@@ -1381,9 +1381,9 @@ int main(int argc, char** argv) {
                         << " ms, Total time: " << context.query_return.total_time_ms
                         << " ms" << std::endl;
               const auto& t = context.query_return.timings;
-              std::cout << "  GPU time: " << t.gpu_execution_time_ms
-                        << " ms, CPU time: " << t.cpu_execution_time_ms << " ms"
-                        << std::endl;
+            //   std::cout << "  GPU time: " << t.gpu_execution_time_ms
+            //             << " ms, CPU time: " << t.cpu_execution_time_ms << " ms"
+            //             << std::endl;
               std::cout << "  Executor queue time: " << t.executor_queue_time_ms << " ms,"
                         << " Kernel queue time: " << t.kernel_queue_time_ms << " ms,"
                         << " Compilation queue time: " << t.compilation_queue_time_ms
@@ -1392,6 +1392,9 @@ int main(int argc, char** argv) {
                         << " ms, Compilation time: " << t.compilation_time_ms
                         << " ms, Parsing time: " << t.parsing_time_ms << " ms"
                         << std::endl;
+              std::cout << "  Pre-execution time: " << t.pre_execution_time_ms
+                        << " ms, Post-execution time: " << t.post_execution_time_ms
+                        << " ms" << std::endl;
             }
             continue;
           }
@@ -1425,21 +1428,24 @@ int main(int argc, char** argv) {
             std::cout << std::endl;
           }
           if (print_timing) {
-            std::cout << row_count << " rows returned." << std::endl;
-            std::cout << "Execution time: " << context.query_return.execution_time_ms
-                      << " ms, Total time: " << context.query_return.total_time_ms
-                      << " ms" << std::endl;
-            const auto& t = context.query_return.timings;
-            std::cout << "  GPU time: " << t.gpu_execution_time_ms
-                      << " ms, CPU time: " << t.cpu_execution_time_ms << " ms"
-                      << std::endl;
-            std::cout << "  Executor queue time: " << t.executor_queue_time_ms << " ms,"
-                      << " Kernel queue time: " << t.kernel_queue_time_ms << " ms,"
-                      << " Compilation queue time: " << t.compilation_queue_time_ms
-                      << " ms" << std::endl;
-            std::cout << "  Kernel time: " << t.kernel_execution_time_ms
-                      << " ms, Compilation time: " << t.compilation_time_ms
-                      << " ms, Parsing time: " << t.parsing_time_ms << " ms" << std::endl;
+              std::cout << "Execution time: " << context.query_return.execution_time_ms
+                        << " ms, Total time: " << context.query_return.total_time_ms
+                        << " ms" << std::endl;
+              const auto& t = context.query_return.timings;
+            //   std::cout << "  GPU time: " << t.gpu_execution_time_ms
+            //             << " ms, CPU time: " << t.cpu_execution_time_ms << " ms"
+            //             << std::endl;
+              std::cout << "  Executor queue time: " << t.executor_queue_time_ms << " ms,"
+                        << " Kernel queue time: " << t.kernel_queue_time_ms << " ms,"
+                        << " Compilation queue time: " << t.compilation_queue_time_ms
+                        << " ms" << std::endl;
+              std::cout << "  Kernel time: " << t.kernel_execution_time_ms
+                        << " ms, Compilation time: " << t.compilation_time_ms
+                        << " ms, Parsing time: " << t.parsing_time_ms << " ms"
+                        << std::endl;
+              std::cout << "  Pre-execution time: " << t.pre_execution_time_ms
+                        << " ms, Post-execution time: " << t.post_execution_time_ms
+                        << " ms" << std::endl;
           }
         } else {
           (void)backchannel(TURN_OFF, nullptr);

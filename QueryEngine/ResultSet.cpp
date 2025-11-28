@@ -736,6 +736,14 @@ void ResultSet::addCompilationTime(const int64_t compilation_time) {
   timings_.compilation_time += compilation_time;
 }
 
+void ResultSet::setPreExecutionTime(const int64_t pre_execution_time) {
+  timings_.pre_execution_time = pre_execution_time;
+}
+
+void ResultSet::setPostExecutionTime(const int64_t post_execution_time) {
+  timings_.post_execution_time = post_execution_time;
+}
+
 int64_t ResultSet::getQueueTime() const {
   return timings_.executor_queue_time + timings_.kernel_queue_time +
          timings_.compilation_queue_time;

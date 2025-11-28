@@ -592,6 +592,7 @@ ExecutionResult RelAlgExecutor::executeRelAlgQuery(const CompilationOptions& co,
   ScopeGuard log_execute_rel_alg_query = [&]() {
     std::cout << "RelAlgExecutor::executeRelAlgQuery time: "
               << timer_stop(rel_alg_query_begin) << " ms\n";
+    std::cout << "\n----------------------------------\n\n";
   };
 
   auto run_query = [&](const CompilationOptions& co_in) {
@@ -634,6 +635,7 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptio
   INJECT_TIMER(executeRelAlgQueryNoRetry);
   auto timer = DEBUG_TIMER(__func__);
   auto timer_setup = DEBUG_TIMER("Query pre-execution steps");
+  const auto rel_alg_setup_begin = timer_start();
 
   query_dag_->resetQueryExecutionState();
   const auto& ra = query_dag_->getRootNode();
@@ -756,6 +758,8 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptio
         ed_seq, co, eo, render_info, queue_time_ms);
   }
   timer_setup.stop();
+  const auto pre_execution_time_ms = timer_stop(rel_alg_setup_begin);
+  std::cout << "executeRelAlgQuery setup time: " << pre_execution_time_ms << " ms\n";
 
   // Dispatch the subqueries first
   const auto global_hints = getGlobalQueryHint();
@@ -782,7 +786,12 @@ ExecutionResult RelAlgExecutor::executeRelAlgQueryNoRetry(const CompilationOptio
     auto result = subquery_executor.executeRelAlgSeq(subquery_seq, co, eo, nullptr, 0);
     subquery->setExecutionResult(std::make_shared<ExecutionResult>(result));
   }
-  return executeRelAlgSeq(ed_seq, co, eo, render_info, queue_time_ms);
+  auto execution_result =
+      executeRelAlgSeq(ed_seq, co, eo, render_info, queue_time_ms);
+  if (auto rows = execution_result.getDataPtr()) {
+    rows->setPreExecutionTime(pre_execution_time_ms);
+  }
+  return execution_result;
 }
 
 AggregatedColRange RelAlgExecutor::computeColRangesCache() {
@@ -3484,9 +3493,15 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
                                             const int64_t queue_time_ms) {
   auto timer = DEBUG_TIMER(__func__);
   const auto execute_sort_begin = timer_start();
-  ScopeGuard log_execute_sort = [&]() {
-    std::cout << "RelAlgExecutor::executeSort time: "
-              << timer_stop(execute_sort_begin) << " ms\n";
+  int64_t primary_sort_time_ms{0};
+  bool primary_sort_recorded{false};
+  auto finalize_sort_result = [&](ExecutionResult&& exec_result) -> ExecutionResult {
+    const auto execute_sort_time_ms = timer_stop(execute_sort_begin);
+    std::cout << "RelAlgExecutor::executeSort time: " << execute_sort_time_ms << " ms\n";
+    if (auto rows = exec_result.getDataPtr()) {
+      rows->setPostExecutionTime(primary_sort_recorded ? primary_sort_time_ms : 0);
+    }
+    return exec_result;
   };
   check_sort_node_source_constraint(sort);
   const auto source = sort->getInput(0);
@@ -3533,7 +3548,7 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
     ExecutionResult result(result_rows, aggregated_result.targets_meta);
     sort->setOutputMetainfo(aggregated_result.targets_meta);
 
-    return result;
+    return finalize_sort_result(std::move(result));
   }
 
   std::list<std::shared_ptr<Analyzer::Expr>> groupby_exprs;
@@ -3551,7 +3566,9 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
                              &groupby_exprs,
                              &is_desc,
                              &order_entries,
-                             &use_speculative_top_n_sort]() -> ExecutionResult {
+                             &use_speculative_top_n_sort,
+                             &primary_sort_time_ms,
+                             &primary_sort_recorded]() -> ExecutionResult {
     std::optional<size_t> limit = sort->getLimit();
     const size_t offset = sort->getOffset();
     // check whether sort's input is cached
@@ -3623,8 +3640,11 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
       const size_t top_n = limit_val + offset;
       const auto primary_sort_begin = timer_start();
       rows_to_sort->sort(order_entries, top_n, co.device_type, executor_);
+      const auto primary_sort_duration_ms = timer_stop(primary_sort_begin);
       std::cout << "executeSort primary rows_to_sort->sort time: "
-                << timer_stop(primary_sort_begin) << " ms\n";
+                << primary_sort_duration_ms << " ms\n";
+      primary_sort_time_ms = primary_sort_duration_ms;
+      primary_sort_recorded = true;
     }
     if (limit || offset) {
       const auto trim_begin = timer_start();
@@ -3647,12 +3667,14 @@ ExecutionResult RelAlgExecutor::executeSort(const RelSort* sort,
   };
 
   try {
-    return execute_sort_query();
+    return finalize_sort_result(execute_sort_query());
   } catch (const SpeculativeTopNFailed& e) {
     CHECK_EQ(size_t(1), groupby_exprs.size());
     CHECK(groupby_exprs.front());
     speculative_topn_blacklist_.add(groupby_exprs.front(), is_desc);
-    return execute_sort_query();
+    primary_sort_recorded = false;
+    primary_sort_time_ms = 0;
+    return finalize_sort_result(execute_sort_query());
   }
 }
 
