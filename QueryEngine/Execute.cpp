@@ -2156,8 +2156,8 @@ ResultSetPtr Executor::executeWorkUnit(size_t& max_groups_buffer_entry_guess,
   VLOG(1) << "Executor " << executor_id_ << " is executing work unit:" << ra_exe_unit_in;
   const auto execute_work_unit_begin = timer_start();
   ScopeGuard log_execute_work_unit = [this, execute_work_unit_begin]() {
-    std::cout << "Executor::executeWorkUnit id=" << executor_id_
-              << " time: " << timer_stop(execute_work_unit_begin) << " ms\n";
+    // std::cout << "Executor::executeWorkUnit id=" << executor_id_
+    //           << " time: " << timer_stop(execute_work_unit_begin) << " ms\n";
   };
   auto copied_co = co;
   copied_co.device_type = getDeviceTypeForTargets(ra_exe_unit_in, co.device_type);
@@ -3251,7 +3251,7 @@ void Executor::launchKernelsImpl(SharedKernelContext& shared_context,
   }
   auto time = timer_stop(exec_begin);
   kernel_execution_time_ms_ += time;
-  std::cout << "Kernel execution time: " << time << " ms\n";
+//   std::cout << "Kernel execution time: " << time << " ms\n";
 }
 
 void Executor::launchKernelsLocked(

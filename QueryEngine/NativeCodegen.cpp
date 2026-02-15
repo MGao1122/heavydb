@@ -3351,7 +3351,7 @@ Executor::compileWorkUnit(const std::vector<InputTableInfo>& query_infos,
       std::move(query_mem_desc));
   auto time = timer_stop(compile_begin);
   compilation_time_ms_ += time;
-  std::cout << "Compilation time: " << time << " ms\n";
+//   std::cout << "Compilation time: " << time << " ms\n";
   return result;
 }
 
