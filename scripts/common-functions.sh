@@ -1,6 +1,5 @@
 #!/bin/bash
 
-HTTP_DEPS="https://dependencies.heavy.ai/thirdparty"
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function generate_deps_version_file() {
@@ -65,7 +64,9 @@ function install_required_ubuntu_packages() {
       libiberty-dev \
       libicu-dev \
       libidn2-dev \
+      liblog4shib-dev \
       liblzma-dev \
+      libminizip-dev \
       libmd-dev \
       libncurses5-dev \
       libpng-dev \
@@ -187,13 +188,12 @@ function download_make_install() {
 CMAKE_VERSION=3.26.5
 
 function install_cmake() {
-  CXXFLAGS="-pthread" CFLAGS="-pthread" download_make_install ${HTTP_DEPS}/cmake-${CMAKE_VERSION}.tar.gz
+  CXXFLAGS="-pthread" CFLAGS="-pthread" download_make_install https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz
 }
 
 BOOST_VERSION=1_86_0
 function install_boost() {
-  # http://downloads.sourceforge.net/project/boost/boost/${BOOST_VERSION//_/.}/boost_$${BOOST_VERSION}.tar.bz2
-  download ${HTTP_DEPS}/boost_${BOOST_VERSION}.tar.bz2
+  download https://archives.boost.io/release/${BOOST_VERSION//_/.}/source/boost_${BOOST_VERSION}.tar.bz2
   extract boost_${BOOST_VERSION}.tar.bz2
   pushd boost_${BOOST_VERSION}
   ./bootstrap.sh --prefix=$PREFIX
@@ -203,8 +203,7 @@ function install_boost() {
 }
 
 function install_openssl() {
-  # https://www.openssl.org/source/old/3.0/openssl-3.0.10.tar.gz
-  download_make_install ${HTTP_DEPS}/openssl-3.0.10.tar.gz "" "linux-${ARCH} no-shared no-dso -fPIC"
+  download_make_install https://github.com/openssl/openssl/releases/download/openssl-3.0.10/openssl-3.0.10.tar.gz "" "linux-${ARCH} no-shared no-dso -fPIC"
 }
 
 LDAP_VERSION=2.5.16
@@ -322,7 +321,7 @@ function install_awscpp() {
   pushd aws-sdk-cpp-${AWSCPP_VERSION}
   ./prefetch_crt_dependency.sh
   sed -i 's/-Werror//g' cmake/compiler_settings.cmake
-  mkdir build
+  mkdir -p build
   cd build
   cmake \
       -GNinja \
@@ -346,10 +345,11 @@ LLVM_VERSION=14.0.6
 
 function install_llvm() {
     VERS=${LLVM_VERSION}
-    download ${HTTP_DEPS}/llvm/$VERS/llvm-$VERS.src.tar.xz
-    download ${HTTP_DEPS}/llvm/$VERS/clang-$VERS.src.tar.xz
-    download ${HTTP_DEPS}/llvm/$VERS/compiler-rt-$VERS.src.tar.xz
-    download ${HTTP_DEPS}/llvm/$VERS/clang-tools-extra-$VERS.src.tar.xz
+    LLVM_RELEASE_URL=https://github.com/llvm/llvm-project/releases/download/llvmorg-$VERS
+    download $LLVM_RELEASE_URL/llvm-$VERS.src.tar.xz
+    download $LLVM_RELEASE_URL/clang-$VERS.src.tar.xz
+    download $LLVM_RELEASE_URL/compiler-rt-$VERS.src.tar.xz
+    download $LLVM_RELEASE_URL/clang-tools-extra-$VERS.src.tar.xz
     rm -rf llvm-$VERS.src
     extract llvm-$VERS.src.tar.xz
     extract clang-$VERS.src.tar.xz
@@ -361,7 +361,7 @@ function install_llvm() {
     mv clang-tools-extra-$VERS.src llvm-$VERS.src/tools/clang/tools/extra
 
     rm -rf build.llvm-$VERS
-    mkdir build.llvm-$VERS
+    mkdir -p build.llvm-$VERS
     pushd build.llvm-$VERS
 
     LLVM_SHARED=""
@@ -406,8 +406,7 @@ function install_llvm() {
 THRIFT_VERSION=0.20.0
 
 function install_thrift() {
-    # http://dlcdn.apache.org/thrift/$THRIFT_VERSION/thrift-$THRIFT_VERSION.tar.gz
-    download ${HTTP_DEPS}/thrift-$THRIFT_VERSION.tar.gz
+    download https://archive.apache.org/dist/thrift/$THRIFT_VERSION/thrift-$THRIFT_VERSION.tar.gz
     extract thrift-$THRIFT_VERSION.tar.gz
     pushd thrift-$THRIFT_VERSION
     if [ "$TSAN" = "false" ]; then
@@ -466,30 +465,35 @@ function install_gdal_and_pdal() {
     download_make_install https://github.com/libexpat/libexpat/releases/download/${EXPAT_VERSION_DIR}/expat-${EXPAT_VERSION}.tar.bz2
 
     # kml (for gdal)
-    download ${HTTP_DEPS}/libkml-master.zip
-    unzip -u libkml-master.zip
+    # Upstream libkml has switched from autotools to CMake.
+    download https://github.com/libkml/libkml/archive/refs/heads/master.zip
+    rm -rf libkml-master
+    unzip -u master.zip
     ( cd libkml-master
       # Don't use bundled third_party uriparser.
       # It results in duplicate symbols when linking some heavydb tests,
       # and is missing symbols used by arrow because it is an old version.
+      # libkml's CMake then locates the system uriparser via CMAKE_PREFIX_PATH.
       rm -Rf third_party/uriparser-*
-      find . -name Makefile.am -exec sed -i 's/ liburiparser\.la//' {} +
-      find . -name Makefile.am -exec sed -i '/uriparser/d' {} +
-      # Delete trailing backslashes that precede a blank line left from prior command.
-      find . -name Makefile.am -exec sed -iE ':a;N;$!ba;s/\\\n\s*$/\n/m' {} +
-
-      ./autogen.sh
-      CURL_CONFIG=$PREFIX/bin/curl-config \
-      CXXFLAGS="-std=c++03" \
-      LDFLAGS="-L$PREFIX/lib -luriparser" \
-      ./configure --with-expat-include-dir=$PREFIX/include/ --with-expat-lib-dir=$PREFIX/lib --prefix=$PREFIX --enable-static --disable-java --disable-python --disable-swig
-      makej
-      make install
+      mkdir -p build
+      cd build
+      cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=$PREFIX \
+          -DCMAKE_PREFIX_PATH=$PREFIX \
+          -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+          -DWITH_JAVA=OFF \
+          -DWITH_PYTHON=OFF \
+          -DWITH_SWIG=OFF
+      cmake_build_and_install
     )
-    check_artifact_cleanup libkml-master.zip libkml-master
+    check_artifact_cleanup master.zip libkml-master
 
     # hdf5 (for gdal)
-    download_make_install ${HTTP_DEPS}/hdf5-${HDF5_VERSION}.tar.gz "" "--enable-hl"
+    # HDF5 1.12.1 is not published as a GitHub release asset, so use The HDF
+    # Group's official archive. ${HDF5_VERSION%.*} yields e.g. 1.12 for 1.12.1.
+    download_make_install https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION%.*}/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz "" "--enable-hl"
 
     # netcdf (for gdal)
     download https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_VERSION}.tar.gz
@@ -515,7 +519,7 @@ function install_gdal_and_pdal() {
     # tiff (for proj, geotiff, gdal)
     download http://download.osgeo.org/libtiff/tiff-${TIFF_VERSION}.tar.gz
     extract tiff-$TIFF_VERSION.tar.gz
-    mkdir tiff-$TIFF_VERSION/build2
+    mkdir -p tiff-$TIFF_VERSION/build2
     ( cd tiff-$TIFF_VERSION/build2
       # Build and install both libtiff.so and libtiff.a.
       # Static build requires libtiff.a and proj+gdal apps like ogrinfo require libtiff.so.
@@ -540,7 +544,7 @@ function install_gdal_and_pdal() {
     # proj (for geotiff, gdal)
     download https://download.osgeo.org/proj/proj-${PROJ_VERSION}.tar.gz
     tar xzvf proj-${PROJ_VERSION}.tar.gz
-    mkdir proj-${PROJ_VERSION}/build
+    mkdir -p proj-${PROJ_VERSION}/build
     ( cd proj-${PROJ_VERSION}/build
       cmake .. \
           -DBUILD_APPS=on \
@@ -560,7 +564,7 @@ function install_gdal_and_pdal() {
     pushd libgeotiff-$GEOTIFF_VERSION
     sed -i 's/CHECK_FUNCTION_EXISTS(TIFFOpen HAVE_TIFFOPEN)/SET(HAVE_TIFFOPEN TRUE)/g' CMakeLists.txt
     sed -i 's/CHECK_FUNCTION_EXISTS(TIFFMergeFieldInfo HAVE_TIFFMERGEFIELDINFO)/SET(HAVE_TIFFMERGEFIELDINFO TRUE)/g' CMakeLists.txt
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} -DWITH_UTILITIES=off
     cmake_build_and_install
@@ -575,7 +579,7 @@ function install_gdal_and_pdal() {
     download https://github.com/uclouvain/openjpeg/archive/refs/tags/v${OPENJPEG_VERSION}.tar.gz
     tar xzvf v${OPENJPEG_VERSION}.tar.gz
     pushd openjpeg-${OPENJPEG_VERSION}
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${PREFIX} -DBUILD_CODEC=off -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS}
     makej
@@ -593,7 +597,7 @@ function install_gdal_and_pdal() {
     download https://github.com/OSGeo/gdal/releases/download/v${GDAL_VERSION}/gdal-${GDAL_VERSION}.tar.gz
     tar xzvf gdal-${GDAL_VERSION}.tar.gz
     pushd gdal-${GDAL_VERSION}
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_C_FLAGS="$CFLAGS" \
@@ -649,7 +653,7 @@ function install_gdal_and_pdal() {
       sed -i 's/^/#/' plugins/faux/CMakeLists.txt
       sed -i '/# Configure build targets/,/# Targets installation/s/^/#/' apps/CMakeLists.txt
     fi
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
              -DCMAKE_INSTALL_PREFIX=$PREFIX \
@@ -677,7 +681,7 @@ function install_gdal_tools() {
     download http://download.osgeo.org/libtiff/tiff-${TIFF_VERSION}.tar.gz
     extract tiff-$TIFF_VERSION.tar.gz
     pushd tiff-$TIFF_VERSION
-    mkdir build2
+    mkdir -p build2
     pushd build2
     cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX -DBUILD_SHARED_LIBS=on -Dtiff-tools=OFF -Dtiff-tests=OFF -Dtiff-contrib=OFF -Dtiff-docs=OFF -Dwebp=off
     cmake --build . --target tiff
@@ -691,7 +695,7 @@ function install_gdal_tools() {
     download https://download.osgeo.org/proj/proj-${PROJ_VERSION}.tar.gz
     tar xzvf proj-${PROJ_VERSION}.tar.gz
     pushd proj-${PROJ_VERSION}
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${PREFIX} -DENABLE_TIFF=on -DBUILD_TESTING=off -DBUILD_APPS=on -DBUILD_SHARED_LIBS=on -DTIFF_LIBRARY_RELEASE=${PREFIX}/lib64/libtiff.so
     cmake_build_and_install
@@ -716,7 +720,7 @@ function install_gdal_tools() {
     pushd zstd-${ZSTD_VERSION}
     pushd build
     pushd cmake
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DZSTD_BUILD_PROGRAMS=OFF -DZSTD_BUILD_SHARED=on -DZSTD_BUILD_STATIC=off
     cmake_build_and_install
@@ -730,7 +734,7 @@ function install_gdal_tools() {
     download https://github.com/uclouvain/openjpeg/archive/refs/tags/v${OPENJPEG_VERSION}.tar.gz
     tar xzvf v${OPENJPEG_VERSION}.tar.gz
     pushd openjpeg-${OPENJPEG_VERSION}
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${PREFIX} -DBUILD_CODEC=off -DBUILD_SHARED_LIBS=on -DBUILD_STATIC_LIBS=off
     makej
@@ -747,7 +751,7 @@ function install_gdal_tools() {
     download https://github.com/OSGeo/gdal/releases/download/v${GDAL_VERSION}/gdal-${GDAL_VERSION}.tar.gz
     tar xzvf gdal-${GDAL_VERSION}.tar.gz
     pushd gdal-${GDAL_VERSION}
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_INSTALL_PREFIX=$PREFIX \
@@ -776,10 +780,10 @@ function install_gdal_tools() {
 GEOS_VERSION=3.11.1
 
 function install_geos() {
-    download ${HTTP_DEPS}/geos-${GEOS_VERSION}.tar.bz2
+    download https://download.osgeo.org/geos/geos-${GEOS_VERSION}.tar.bz2
     tar xvf geos-${GEOS_VERSION}.tar.bz2
     pushd geos-${GEOS_VERSION}
-    mkdir build
+    mkdir -p build
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_INSTALL_PREFIX=${PREFIX} \
@@ -851,8 +855,7 @@ function install_go() {
   GO_ARCH=${ARCH}
   GO_ARCH=${GO_ARCH//x86_64/amd64}
   GO_ARCH=${GO_ARCH//aarch64/arm64}
-  # https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz
-  download ${HTTP_DEPS}/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
+  download https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
   extract go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
   rm -rf $PREFIX/go || true
   mv go $PREFIX
@@ -889,7 +892,7 @@ function install_ninja() {
 MAVEN_VERSION=3.6.3
 
 function install_maven() {
-    download ${HTTP_DEPS}/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+    download https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
     extract apache-maven-${MAVEN_VERSION}-bin.tar.gz
     rm -rf $PREFIX/maven || true
     mv apache-maven-${MAVEN_VERSION} $PREFIX/maven
@@ -938,7 +941,7 @@ function install_abseil() {
   wget --continue https://github.com/abseil/abseil-cpp/archive/$ABSEIL_VERSION.tar.gz
   tar xvf $ABSEIL_VERSION.tar.gz
   pushd abseil-cpp-$ABSEIL_VERSION
-  mkdir build
+  mkdir -p build
   pushd build
   cmake \
       -DCMAKE_INSTALL_PREFIX=$PREFIX \
@@ -955,14 +958,34 @@ function install_abseil() {
 VULKAN_VERSION=1.3.275.0 # 12/22/23
 
 function install_vulkan() {
-  rm -rf vulkan
-  mkdir -p vulkan
-  pushd vulkan
-  # Custom tarball which excludes the spir-v toolchain
-  wget --continue ${HTTP_DEPS}/vulkansdk-linux-${ARCH}-no-spirv-$VULKAN_VERSION.tar.gz
-  tar xvf vulkansdk-linux-${ARCH}-no-spirv-$VULKAN_VERSION.tar.gz
-  rsync -av $VULKAN_VERSION/${ARCH}/* $PREFIX  
-  popd # vulkan
+  if [ "$ARCH" == "x86_64" ]; then
+    # Official LunarG SDK only ships prebuilt binaries for x86_64.
+    rm -rf vulkan
+    mkdir -p vulkan
+    pushd vulkan
+    VULKAN_TARBALL=vulkansdk-linux-x86_64-${VULKAN_VERSION}.tar.xz
+    wget --continue https://sdk.lunarg.com/sdk/download/${VULKAN_VERSION}/linux/${VULKAN_TARBALL}
+    tar xvf ${VULKAN_TARBALL}
+    rsync -av ${VULKAN_VERSION}/x86_64/ $PREFIX/
+    popd # vulkan
+  elif [ "$ARCH" == "aarch64" ]; then
+    # LunarG does not ship a prebuilt aarch64 SDK, install equivalent
+    # components via apt (Ubuntu packages cover headers, loader, validation
+    # layers, glslang/SPIRV tools, and shaderc).
+    # Note: libshaderc-dev is x86-only on Ubuntu, and heavydb's mapd-deps build
+    # already compiles glslang + spirv-cross from source into $PREFIX before
+    # install_vulkan runs, so we only need the Vulkan loader/headers,
+    # validation layers, and tools from apt here.
+    DEBIAN_FRONTEND=noninteractive sudo apt install -y \
+        libvulkan-dev \
+        spirv-headers \
+        spirv-tools \
+        vulkan-tools \
+        vulkan-validationlayers-dev
+  else
+    echo "ERROR - Unsupported ARCH for Vulkan SDK: ${ARCH}"
+    exit 1
+  fi
 }
 
 GLM_VERSION=0.9.9.8
@@ -1064,8 +1087,7 @@ function install_mold() {
 
 BZIP2_VERSION=1.0.6
 function install_bzip2() {
-  # http://bzip.org/${BZIP2_VERSION}/bzip2-$VERS.tar.gz
-  download ${HTTP_DEPS}/bzip2-${BZIP2_VERSION}.tar.gz
+  download https://sourceware.org/pub/bzip2/bzip2-${BZIP2_VERSION}.tar.gz
   extract bzip2-$BZIP2_VERSION.tar.gz
   pushd bzip2-${BZIP2_VERSION}
   sed -i 's/O2 -g \$/O2 -g -fPIC \$/' Makefile
@@ -1127,7 +1149,7 @@ function install_zstd() {
   fi
   download https://github.com/facebook/zstd/archive/refs/tags/v$ZSTD_VERSION.tar.gz
   extract v$ZSTD_VERSION.tar.gz
-  mkdir zstd-$ZSTD_VERSION/build/cmake/build
+  mkdir -p zstd-$ZSTD_VERSION/build/cmake/build
   ( cd zstd-$ZSTD_VERSION/build/cmake/build
     cmake .. -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DZSTD_BUILD_PROGRAMS=OFF -DZSTD_BUILD_SHARED=$BUILD_SHARED_LIBS -DZSTD_BUILD_STATIC=$BUILD_STATIC_LIBS
     cmake_build_and_install
@@ -1140,7 +1162,7 @@ function install_uriparser() {
   NAME="uriparser-$URIPARSER_VERSION"
   download https://github.com/uriparser/uriparser/archive/refs/tags/$NAME.tar.gz
   extract $NAME.tar.gz
-  mkdir uriparser-$NAME/build
+  mkdir -p uriparser-$NAME/build
   ( cd uriparser-$NAME/build
     cmake .. \
         -DBUILD_SHARED_LIBS="$BUILD_SHARED_LIBS" \
@@ -1161,7 +1183,7 @@ GLFW_VERSION=3.3.6
 function install_glfw() {
   download https://github.com/glfw/glfw/archive/refs/tags/$GLFW_VERSION.tar.gz
   extract $GLFW_VERSION.tar.gz
-  mkdir glfw-$GLFW_VERSION/build
+  mkdir -p glfw-$GLFW_VERSION/build
   ( cd glfw-$GLFW_VERSION/build
     cmake .. \
         -DBUILD_SHARED_LIBS="$BUILD_SHARED_LIBS" \
@@ -1179,10 +1201,14 @@ function install_glfw() {
 }
 
 IMGUI_VERSION=1.89.1-docking
+# Commit on the imgui `docking` branch that bumped IMGUI_VERSION to 1.89.1.
+IMGUI_DOCKING_COMMIT=a8df192df022ed6ac447e7b7ada718c4c4824b41
 function install_imgui() {
   NAME=imgui.$IMGUI_VERSION
-  download $HTTP_DEPS/$NAME.tar.gz
-  tar xvf $NAME.tar.gz
+  rm -rf $NAME imgui-${IMGUI_DOCKING_COMMIT}
+  download https://github.com/ocornut/imgui/archive/${IMGUI_DOCKING_COMMIT}.tar.gz
+  tar xvf ${IMGUI_DOCKING_COMMIT}.tar.gz
+  mv imgui-${IMGUI_DOCKING_COMMIT} $NAME
   mkdir -p $PREFIX/include/imgui
   rsync -av $NAME/* $PREFIX/include/imgui
 }
@@ -1190,8 +1216,11 @@ function install_imgui() {
 IMPLOT_VERSION=0.14
 function install_implot() {
   NAME=implot.$IMPLOT_VERSION
-  download $HTTP_DEPS/$NAME.tar.gz
-  tar xvf $NAME.tar.gz
+  TARBALL=v${IMPLOT_VERSION}.tar.gz
+  download https://github.com/epezent/implot/archive/refs/tags/${TARBALL}
+  rm -rf $NAME implot-${IMPLOT_VERSION}
+  tar xvf $TARBALL
+  mv implot-${IMPLOT_VERSION} $NAME
   # Patch #includes for imgui.h / imgui_internal.h
   patch -d $NAME -p0 < $SCRIPTS_DIR/implot-0.14_fix_imgui_includes.patch
   mkdir -p $PREFIX/include/implot
@@ -1224,7 +1253,7 @@ function install_h3() {
   download https://github.com/uber/h3/archive/refs/tags/v${H3_VERSION}.tar.gz
   extract v${H3_VERSION}.tar.gz
   pushd h3-${H3_VERSION}
-  mkdir build
+  mkdir -p build
   pushd build
   cmake \
     -DCMAKE_INSTALL_PREFIX=${PREFIX} \
@@ -1247,10 +1276,14 @@ function install_h3() {
 CPR_VERSION=1.11.2
 
 function install_cpr() {
-  download ${HTTP_DEPS}/cpr-${CPR_VERSION}.tar.gz
+  download https://github.com/libcpr/cpr/archive/refs/tags/${CPR_VERSION}.tar.gz
+  # GitHub names the archive after the tag; rename it for downstream extract/build steps.
+  if [ -f "${CPR_VERSION}.tar.gz" ] && [ ! -f "cpr-${CPR_VERSION}.tar.gz" ]; then
+    mv "${CPR_VERSION}.tar.gz" "cpr-${CPR_VERSION}.tar.gz"
+  fi
   extract cpr-${CPR_VERSION}.tar.gz
   pushd cpr-${CPR_VERSION}
-  mkdir build
+  mkdir -p build
   pushd build
   cmake \
     -DCMAKE_INSTALL_PREFIX=${PREFIX} \

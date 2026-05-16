@@ -83,8 +83,6 @@ if [[ ! -x  "$(command -v sudo)" ]] ; then
   fi
 fi
 
-HTTP_DEPS="https://dependencies.heavy.ai/thirdparty"
-
 SUFFIX=${SUFFIX:=$(date +%Y%m%d)}
 PREFIX=/usr/local/mapd-deps
 
@@ -168,13 +166,12 @@ install_boost
 export BOOST_ROOT=$PREFIX/include
 
 VERS=3.3.2
-CFLAGS="$CFLAGS" download_make_install ${HTTP_DEPS}/libarchive-$VERS.tar.gz "" "$CONFIGURE_OPTS --without-nettle"
+CFLAGS="$CFLAGS" download_make_install https://github.com/libarchive/libarchive/releases/download/v$VERS/libarchive-$VERS.tar.gz "" "$CONFIGURE_OPTS --without-nettle"
 
 install_uriparser
 
 VERS=8.9.1
-# https://curl.haxx.se/download/curl-$VERS.tar.xz
-download_make_install ${HTTP_DEPS}/curl-$VERS.tar.xz "" "--disable-ldap --disable-ldaps --with-openssl"
+download_make_install https://curl.se/download/curl-$VERS.tar.xz "" "--disable-ldap --disable-ldaps --with-openssl"
 
 # cpr
 install_cpr
@@ -200,13 +197,14 @@ install_awscpp
 install_thrift
 
 VERS=3.52.16
-CFLAGS="-fPIC" CXXFLAGS="-fPIC" download_make_install ${HTTP_DEPS}/libiodbc-${VERS}.tar.gz
+CFLAGS="-fPIC" CXXFLAGS="-fPIC" download_make_install https://github.com/openlink/iODBC/releases/download/v${VERS}/libiodbc-${VERS}.tar.gz
 
 # Include What You Use
 install_iwyu
 
-# bison
-download_make_install ${HTTP_DEPS}/bisonpp-1.21-45.tar.gz bison++-1.21
+# bison++ (the apt `bison++` package conflicts with `bison`, so build from
+# Ubuntu's upstream source tarball into $PREFIX instead).
+download_make_install https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/bison++/1.21.11-5/bison++_1.21.11.orig.tar.gz bison++-1.21.11
 
 # TBB
 install_tbb
@@ -240,7 +238,7 @@ wget --continue https://github.com/KhronosGroup/glslang/archive/$VERS.tar.gz
 tar xvf $VERS.tar.gz
 pushd glslang-$VERS
 ./update_glslang_sources.py
-mkdir build
+mkdir -p build
 pushd build
 cmake \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -260,7 +258,7 @@ pushd spirv-cross
 wget --continue https://github.com/KhronosGroup/SPIRV-Cross/archive/$VERS.tar.gz
 tar xvf $VERS.tar.gz
 pushd SPIRV-Cross-$VERS
-mkdir build
+mkdir -p build
 pushd build
 cmake \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -288,9 +286,12 @@ if [ "$LIBRARY_TYPE" != "static" ]; then
 fi
 
 # OpenSAML
-download_make_install ${HTTP_DEPS}/xml-security-c-2.0.4.tar.gz "" "$CONFIGURE_OPTS --without-xalan"
-download_make_install ${HTTP_DEPS}/xmltooling-3.0.4-nolog4shib.tar.gz "" "$CONFIGURE_OPTS"
-CXXFLAGS="-std=c++14" download_make_install ${HTTP_DEPS}/opensaml-3.0.1-nolog4shib.tar.gz "" "$CONFIGURE_OPTS"
+# Upstream tarballs are used here; the `-nolog4shib` variants previously used
+# stripped log4shib, which we now satisfy with the `liblog4shib-dev` apt
+# package installed in install_required_ubuntu_packages.
+download_make_install https://archive.apache.org/dist/santuario/c-library/xml-security-c-2.0.4.tar.gz "" "$CONFIGURE_OPTS --without-xalan"
+download_make_install https://shibboleth.net/downloads/c++-opensaml/3.0.1/xmltooling-3.0.4.tar.gz "" "$CONFIGURE_OPTS"
+CXXFLAGS="-std=c++14" download_make_install https://shibboleth.net/downloads/c++-opensaml/3.0.1/opensaml-3.0.1.tar.gz "" "$CONFIGURE_OPTS"
 
 # H3
 install_h3
